@@ -3,6 +3,7 @@ services:
   mongo:
     image: mongo
     restart: always
+    container_name: labeling-app-mongo
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: example
@@ -11,3 +12,16 @@ services:
     ports:
       - 27017:27017
 
+
+  backend-app:
+    image: labeling-app-backend-image
+    build:
+      context: backend/app
+      dockerfile: Dockerfile
+    container_name: labeling-app-backend
+    ports:
+      - 80:80
+    depends_on:
+      - mongo
+    environment:
+      - MONGO_URL=mongodb://root:example@mongo:27017
