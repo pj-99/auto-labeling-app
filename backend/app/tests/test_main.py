@@ -1,4 +1,5 @@
 import os
+from uuid import UUID
 
 import requests
 from fastapi.testclient import TestClient
@@ -41,3 +42,41 @@ def test_image_upload_flow():
 
     # Clean up the test image
     os.remove(test_image_path)
+
+
+def test_create_dataset():
+    # GraphQL mutation for creating a dataset
+    mutation = """
+        mutation {
+            createDataset(
+                userId: "123e4567-e89b-12d3-a456-426614174000",
+                name: "pytest"
+            ) {
+                id
+                name
+                createdBy
+                createdAt
+                updatedAt
+            }
+        }
+    """
+
+    # Execute the mutation
+    response = client.post("/graphql", json={"query": mutation})
+
+    # Check if the request was successful
+    assert response.status_code == 200
+
+    # Parse the response
+    data = response.json()
+    assert "errors" not in data, f"GraphQL errors: {data.get('errors')}"
+    assert "data" in data
+    assert "createDataset" in data["data"]
+
+    # Verify the returned dataset
+    dataset = data["data"]["createDataset"]
+    assert dataset["name"] == "pytest"
+    assert UUID(dataset["createdBy"]) == UUID("123e4567-e89b-12d3-a456-426614174000")
+    assert "id" in dataset
+    assert "createdAt" in dataset
+    assert "updatedAt" in dataset
