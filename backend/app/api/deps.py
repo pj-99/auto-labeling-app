@@ -1,10 +1,23 @@
 # Dependencies for the API
+import os
 from typing import AsyncGenerator
 
 from core.config import Settings
+from google.cloud import storage
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 settings = Settings()
+
+
+# TODO: singleton
+def get_storage_client() -> storage.Client:
+
+    return storage.Client()
+
+
+def get_storage_bucket() -> storage.Bucket:
+    client = get_storage_client()
+    return client.bucket(settings.GCP_STORAGE_BUCKET)
 
 
 async def get_db() -> AsyncGenerator[AsyncIOMotorDatabase, None]:

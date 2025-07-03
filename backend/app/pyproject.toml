@@ -8,10 +8,14 @@ dependencies = [
     "black>=25.1.0",
     "fastapi[standard]>=0.115.14",
     "flake8>=7.3.0",
+    "httpx>=0.28.1",
     "isort>=6.0.1",
     "motor>=3.7.1",
     "pydantic-settings>=2.10.1",
     "strawberry-graphql[fastapi]>=0.275.5",
+    "pytest>=8.4.1",
+    "requests>=2.31.0",
+    "google-cloud-storage>=2.14.0",
 ]
 
 [tool.black]
@@ -23,3 +27,13 @@ target-version = ['py312']
 profile = "black"
 line_length = 88
 src_paths = ["."]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
