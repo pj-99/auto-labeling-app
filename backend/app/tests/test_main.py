@@ -80,3 +80,37 @@ def test_create_dataset():
     assert "id" in dataset
     assert "createdAt" in dataset
     assert "updatedAt" in dataset
+
+    return dataset["id"]
+
+
+def test_insert_image_to_dataset():
+    dataset_id = test_create_dataset()
+
+    # GraphQL mutation for inserting an image to a dataset
+    mutation = (
+        r"""
+        mutation {
+            insertImageToDataset(
+                userId: "123e4567-e89b-12d3-a456-426614174000",
+                datasetId: "%s",
+                imageUrl: "https://example.com/image.jpg",
+                imageName: "test_image"
+            ) { 
+                id
+                imageName
+                imageUrl
+                createdBy
+                createdAt
+                updatedAt
+            }
+        }
+    """
+        % dataset_id
+    )
+
+    # Execute the mutation
+    response = client.post("/graphql", json={"query": mutation}).json()
+
+    # Check if the request was successful
+    assert "errors" not in response, f"GraphQL errors: {response.get('errors')}"

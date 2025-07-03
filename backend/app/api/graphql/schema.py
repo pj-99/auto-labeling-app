@@ -8,11 +8,11 @@ import strawberry
 @strawberry.type
 class Image:
     id: UUID
-    file_name: str
+    image_name: str
     image_url: str
     created_at: datetime.datetime
     updated_at: datetime.datetime
-    caption: str
+    caption: str = ""
     created_by: UUID
 
 
