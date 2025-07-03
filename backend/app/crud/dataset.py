@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 import bson
 from models.dataset import Dataset
 from models.image import Image
+from models.object_class import Class
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 
@@ -100,3 +101,18 @@ async def get_datasets_by_user_id(
         for doc in result
     ]
     return datasets
+
+
+async def create_class(db: AsyncIOMotorDatabase, dataset_id: UUID, name: str) -> Class:
+    if not await check_dataset_exists(db, dataset_id):
+        raise ValueError("Dataset not found")
+
+    classes = await db["datasets"].find_one({"id": dataset_id})["classes"]
+    class_id = len(classes) + 1
+    class_ = Class(id=class_id, name=name)
+
+    await db["datasets"].update_one(
+        {"id": dataset_id},
+        {"$push": {"classes": class_}},
+    )
+    return class_
