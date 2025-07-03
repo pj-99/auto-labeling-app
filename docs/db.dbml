@@ -41,9 +41,10 @@ Table Dataset {
   updated_at timestamp
 }
 
-Table Category {
+// Embbed in Dataset
+Table Class {
   id int [primary key]
-  dataset_id uuid [primary key]
+  // dataset_id uuid [primary key]
   name string
   created_at timestamp
   updated_at timestamp

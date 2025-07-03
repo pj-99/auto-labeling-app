@@ -1,4 +1,5 @@
 import os
+from uuid import UUID
 
 import requests
 from fastapi.testclient import TestClient
@@ -41,3 +42,129 @@ def test_image_upload_flow():
 
     # Clean up the test image
     os.remove(test_image_path)
+
+
+def test_create_dataset():
+    # GraphQL mutation for creating a dataset
+    mutation = """
+        mutation {
+            createDataset(
+                userId: "123e4567-e89b-12d3-a456-426614174000",
+                name: "pytest"
+            ) {
+                id
+                name
+                createdBy
+                createdAt
+                updatedAt
+            }
+        }
+    """
+
+    # Execute the mutation
+    response = client.post("/graphql", json={"query": mutation})
+
+    # Check if the request was successful
+    assert response.status_code == 200
+
+    # Parse the response
+    data = response.json()
+    assert "errors" not in data, f"GraphQL errors: {data.get('errors')}"
+    assert "data" in data
+    assert "createDataset" in data["data"]
+
+    # Verify the returned dataset
+    dataset = data["data"]["createDataset"]
+    assert dataset["name"] == "pytest"
+    assert UUID(dataset["createdBy"]) == UUID("123e4567-e89b-12d3-a456-426614174000")
+    assert "id" in dataset
+    assert "createdAt" in dataset
+    assert "updatedAt" in dataset
+
+    return dataset["id"]
+
+
+def test_insert_image_to_dataset():
+    dataset_id = test_create_dataset()
+
+    # GraphQL mutation for inserting an image to a dataset
+    mutation = (
+        r"""
+        mutation {
+            insertImageToDataset(
+                userId: "123e4567-e89b-12d3-a456-426614174000",
+                datasetId: "%s",
+                imageUrl: "https://example.com/image.jpg",
+                imageName: "test_image"
+            ) { 
+                id
+                imageName
+                imageUrl
+                createdBy
+                createdAt
+                updatedAt
+            }
+        }
+    """
+        % dataset_id
+    )
+
+    # Execute the mutation
+    response = client.post("/graphql", json={"query": mutation}).json()
+
+    # Check if the request was successful
+    assert "errors" not in response, f"GraphQL errors: {response.get('errors')}"
+
+
+def test_insert_class():
+    dataset_id = test_create_dataset()
+
+    # GraphQL mutation for creating a class
+    mutation = (
+        r"""
+        mutation {
+            insertClass(
+                datasetId: "%s",
+                name: "pytest"
+            ) {
+                id
+                name
+                createdAt
+                updatedAt
+            }
+        }
+    """
+        % dataset_id
+    )
+
+    # Execute the mutation
+    response = client.post("/graphql", json={"query": mutation}).json()
+
+    # Check if the request was successful
+    assert "errors" not in response, f"GraphQL errors: {response.get('errors')}"
+
+    return response
+
+
+def test_delete_class():
+    dataset_id = test_create_dataset()
+    class_id = test_insert_class()["data"]["insertClass"]["id"]
+
+    # GraphQL mutation for deleting a class
+    mutation = r"""
+        mutation {
+            deleteClass(
+                datasetId: "%s",
+                classId: %s
+            )
+        }
+    """ % (
+        dataset_id,
+        class_id,
+    )
+
+    # Execute the mutation
+    response = client.post("/graphql", json={"query": mutation}).json()
+
+    # Check if the request was successful
+    assert "errors" not in response, f"GraphQL errors: {response.get('errors')}"
