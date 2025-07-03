@@ -1,0 +1,17 @@
+[project]
+name = "yolo-model"
+version = "0.1.0"
+description = "YOLO model for image classification"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "ultralytics>=8.1.2",
+    "fastapi>=0.115.14",
+    "python-multipart>=0.0.9",
+    "pillow>=10.2.0",
+    "uvicorn>=0.27.1"
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
