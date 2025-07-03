@@ -17,7 +17,8 @@ Core:
 	- 2. Use signed url to upload image, get image url
 	- 2. `insert_image_to_dataset(image_url, ...)`
 - [ ] update dataset classes
-	- 1. update_classes(dataset_id)
+	- 1. insert_class(dataset_id), delete_class(dataset_id, class_id)
+	- 2. rename_class(dataeset_id, class_id)
 - [ ] label an image
 	- 1. query labels(image, dataset_id) => A bounch of bounding boxes and class
 	- 2. update_lables(image_id, dataset_id)

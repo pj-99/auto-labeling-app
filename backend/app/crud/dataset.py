@@ -68,6 +68,7 @@ async def create_dataset(db: AsyncIOMotorDatabase, user_id: UUID, name: str) -> 
         "created_at": datetime.now(),
         "updated_at": datetime.now(),
         "images": [],
+        "classes": [],
     }
     await collection.insert_one(doc)
     return Dataset(
@@ -77,6 +78,7 @@ async def create_dataset(db: AsyncIOMotorDatabase, user_id: UUID, name: str) -> 
         created_at=doc["created_at"],
         updated_at=doc["updated_at"],
         images=[],
+        classes=[],
     )
 
 
@@ -103,16 +105,36 @@ async def get_datasets_by_user_id(
     return datasets
 
 
-async def create_class(db: AsyncIOMotorDatabase, dataset_id: UUID, name: str) -> Class:
+async def insert_class(db: AsyncIOMotorDatabase, dataset_id: UUID, name: str) -> Class:
     if not await check_dataset_exists(db, dataset_id):
         raise ValueError("Dataset not found")
 
-    classes = await db["datasets"].find_one({"id": dataset_id})["classes"]
+    dataset = await db["datasets"].find_one({"id": dataset_id})
+    classes = dataset.get("classes", [])
     class_id = len(classes) + 1
-    class_ = Class(id=class_id, name=name)
+    doc = {
+        "id": class_id,
+        "name": name,
+        "created_at": datetime.now(),
+        "updated_at": datetime.now(),
+    }
 
     await db["datasets"].update_one(
         {"id": dataset_id},
-        {"$push": {"classes": class_}},
+        {"$push": {"classes": doc}},
     )
-    return class_
+    return Class(**doc)
+
+
+async def delete_class(
+    db: AsyncIOMotorDatabase, dataset_id: UUID, class_id: int
+) -> bool:
+    if not await check_dataset_exists(db, dataset_id):
+        raise ValueError("Dataset not found")
+
+    result = await db["datasets"].update_one(
+        {"id": dataset_id},
+        {"$pull": {"classes": {"id": class_id}}},
+    )
+
+    return result.modified_count > 0
