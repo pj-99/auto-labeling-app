@@ -1,0 +1,25 @@
+[project]
+name = "auto-labeling-app"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "black>=25.1.0",
+    "fastapi[standard]>=0.115.14",
+    "flake8>=7.3.0",
+    "isort>=6.0.1",
+    "motor>=3.7.1",
+    "pydantic-settings>=2.10.1",
+    "strawberry-graphql[fastapi]>=0.275.5",
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+
+
+[tool.isort]
+profile = "black"
+line_length = 88
+src_paths = ["."]
