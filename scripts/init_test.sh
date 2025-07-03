@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # Set default MongoDB URI if not provided
-MONGO_URI=${MONGO_URI:-"mongodb://localhost:27017/auto-labeling"}
+MONGO_URL=${MONGO_URL:-"mongodb://localhost:27017/auto-labeling"}
 
 # Create a test user
-mongosh "$MONGO_URI" --eval 'db.users.insertOne({
+mongosh "$MONGO_URL" --eval 'db.users.insertOne({
   _id: UUID(),
   name: "Test User",
   email: "test@example.com",

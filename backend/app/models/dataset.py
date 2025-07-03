@@ -2,8 +2,9 @@ from datetime import datetime
 from typing import List
 from uuid import UUID
 
-from image import Image
 from pydantic import BaseModel
+
+from .image import Image
 
 
 class Dataset(BaseModel):
