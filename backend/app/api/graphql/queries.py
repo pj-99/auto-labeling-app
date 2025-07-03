@@ -12,7 +12,7 @@ from strawberry.types import Info
 @strawberry.type
 class Query:
     @strawberry.field
-    async def datasets(self, info: Info, user_id: UUID) -> typing.List[Dataset]:
+    async def datasets(self, user_id: UUID) -> typing.List[Dataset]:
         # TODO: think about this
         # Can we use dependency injection?
         db: AsyncIOMotorDatabase = await anext(get_db())

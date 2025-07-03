@@ -112,8 +112,9 @@ def test_insert_image_to_dataset():
     # Execute the mutation
     response = client.post("/graphql", json={"query": mutation}).json()
 
-    # Check if the request was successful
-    assert "errors" not in response, f"GraphQL errors: {response.get('errors')}"
+    # Verify the returned dataset
+    dataset = response["data"]["insertImageToDataset"]
+    assert dataset["imageName"] == "test_image"
 
 
 def test_insert_class():

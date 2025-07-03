@@ -40,11 +40,13 @@ async def insert_image_to_dataset(
             image_url=image_url,
             created_by=user_id,
         )
-        await db["images"].insert_one(image.model_dump(mode="json"))
+        image_dict = image.model_dump(mode="json")
+        image_dict["id"] = bson.Binary.from_uuid(image_id)
+        await db["images"].insert_one(image_dict)
 
         # Update the dataset collection
         await db["datasets"].update_one(
-            {"id": dataset_id},
+            {"id": bson.Binary.from_uuid(dataset_id)},
             {"$push": {"images": image_id}},
         )
         return image
@@ -91,17 +93,30 @@ async def get_datasets_by_user_id(
     collection = db["datasets"]
     user_id_binary = bson.Binary.from_uuid(user_id)
     result = await collection.find({"user_id": user_id_binary}).to_list(length=None)
-    datasets = [
-        Dataset(
-            id=doc["id"],
-            name=doc["name"],
-            created_by=doc["user_id"],
-            created_at=doc["created_at"],
-            updated_at=doc["updated_at"],
-            images=doc["images"],
+
+    datasets = []
+    for doc in result:
+        images = []
+
+        for image_uuid in doc["images"]:
+            image = await db["images"].find_one(
+                {"id": bson.Binary.from_uuid(image_uuid)}
+            )
+
+            if image:
+                images.append(image)
+
+        datasets.append(
+            Dataset(
+                id=doc["id"],
+                name=doc["name"],
+                created_by=doc["user_id"],
+                created_at=doc["created_at"],
+                updated_at=doc["updated_at"],
+                images=images,
+            )
         )
-        for doc in result
-    ]
+
     return datasets
 
 
