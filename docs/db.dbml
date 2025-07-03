@@ -22,12 +22,12 @@ Table LabelDetect {
   updated_by uuid [ref: > U.id]
 }
 
-Table LabelSegmenet {
+Table LabelSegment {
   id int [primary key]
   image_id uuid [ref: > U.id, primary key]
   dataset_id uuid [primary key]
   category_id int
-  segements array
+  segments array
   created_by uuid [ref: > U.id]
   updated_by uuid [ref: > U.id]
 }
@@ -45,8 +45,8 @@ Table Category {
   id int [primary key]
   dataset_id uuid [primary key]
   name string
-  created_at uuid
-  updated_at uuid
+  created_at timestamp
+  updated_at timestamp
 }
 
 

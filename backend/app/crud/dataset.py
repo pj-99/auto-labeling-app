@@ -32,16 +32,11 @@ async def create_dataset(db: AsyncIOMotorDatabase, user_id: UUID, name: str) -> 
     return Dataset(
         id=new_dataset_id,
         name=doc["name"],
-        created_by=doc["user_id"],
+        created_by=user_id,
         created_at=doc["created_at"],
         updated_at=doc["updated_at"],
         images=[],
     )
-
-
-async def get_dataset_by_id(db: AsyncIOMotorDatabase, dataset_id: UUID) -> Dataset:
-    collection = db["datasets"]
-    return await collection.find_one({"_id": dataset_id})
 
 
 async def get_datasets_by_user_id(
