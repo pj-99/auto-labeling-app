@@ -6,7 +6,8 @@ export default defineNuxtConfig({
     '@nuxt/ui',
     '@nuxt/eslint',
     '@nuxt/icon',
-    '@nuxt/image'
+    '@nuxt/image',
+    '@nuxtjs/apollo'
   ],
 
   css: ['~/assets/css/main.css'],
@@ -15,5 +16,14 @@ export default defineNuxtConfig({
     compatibilityVersion: 4
   },
 
-  compatibilityDate: '2024-11-27'
+  compatibilityDate: '2024-11-27',
+
+  apollo: {
+    clients: {
+      default: {
+        httpEndpoint: 'http://localhost:8000/graphql'
+      }
+    }
+  },
+
 })
