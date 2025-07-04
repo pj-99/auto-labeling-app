@@ -14,27 +14,11 @@ from pymongo import ReturnDocument
 async def get_label_detections(
     db: AsyncIOMotorDatabase, dataset_id: UUID, image_id: UUID
 ) -> list[LabelDetection]:
-    # Mock data
-    return [
-        LabelDetection(
-            dataset_id=dataset_id,
-            image_id=image_id,
-            class_id=0,
-            x_center=0.5,
-            y_center=0.5,
-            width=0.2,
-            height=0.1,
-        ),
-        LabelDetection(
-            dataset_id=dataset_id,
-            image_id=image_id,
-            class_id=1,
-            x_center=0.3,
-            y_center=0.9,
-            width=0.4,
-            height=0.3,
-        ),
-    ]
+    collection = db["label_detections"]
+    res = await collection.find(
+        {"dataset_id": dataset_id, "image_id": image_id}
+    ).to_list(length=None)
+    return [LabelDetection(**label) for label in res]
 
 
 async def upsert_label_detections(

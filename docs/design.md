@@ -19,10 +19,10 @@ Core:
 - [x] update dataset classes
 	- 1. insert_class(dataset_id), delete_class(dataset_id, class_id)
 - [ ] label an image
-	- 1. query labels(image, dataset_id) => A bounch of bounding boxes and class
-	- 2. update_lables(image_id, dataset_id)
+	- 1. query labels(image, dataset_id) => A bunch of bounding boxes and class
+	- 2. update_labels(image_id, dataset_id)
 	- [ ] detection
-	- [ ] segmentatoin
+	- [ ] segmentation
 - [ ] support auto label by models
 
 Todo or Think:
