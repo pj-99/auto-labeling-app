@@ -1,8 +1,11 @@
 import typing
+from uuid import UUID
 
 import strawberry
 from models.dataset import Dataset as DatasetModel
 from models.image import Image as ImageModel
+from models.label_detection import LabelDetection as LabelDetectionModel
+from models.label_segmentation import LabelSegmentation as LabelSegmentationModel
 from models.object_class import Class as ClassModel
 
 
@@ -19,10 +22,13 @@ class Class:
 @strawberry.experimental.pydantic.type(model=DatasetModel, all_fields=True)
 class Dataset:
     pass
-    # id: strawberry.auto
-    # name: strawberry.auto
-    # images: typing.List[Image]
-    # classes: strawberry.auto
-    # created_by: strawberry.auto
-    # created_at: strawberry.auto
-    # updated_at: strawberry.auto
+
+
+@strawberry.experimental.pydantic.type(model=LabelDetectionModel, all_fields=True)
+class LabelDetection:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=LabelSegmentationModel, all_fields=True)
+class LabelSegmentation:
+    pass
