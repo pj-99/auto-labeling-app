@@ -7,8 +7,19 @@
                 <UButton icon="i-heroicons-sparkles" color="neutral">
                     Auto Labeling
                 </UButton>
-                <UButton icon="i-heroicons-pencil-square" @click="toggleDrawingMode(!isDrawingMode)">
+                <UButton 
+                    icon="i-heroicons-pencil-square" 
+                    :disabled="!selectedClass"
+                    :color="isDrawingMode ? 'primary' : 'neutral'"
+                    @click="toggleDrawingMode(!isDrawingMode)"
+                >
                     {{ isDrawingMode ? 'Exit Drawing Mode' : 'Draw A Box' }}
+                    <template #trailing>
+                        <span v-if="!selectedClass" class="text-xs text-gray-500">(Select a class first)</span>
+                        <span v-else class="text-xs">
+                            {{ classItems.find((c: ClassItem) => c.value === selectedClass)?.label }}
+                        </span>
+                    </template>
                 </UButton>
 
                 <UButton
@@ -33,7 +44,10 @@
                     >
                         <template #item="{ item }">
                             <div class="flex items-center gap-2">
-                                <div class="w-2 h-2 rounded-full bg-primary-500"/>
+                                <div 
+                                    class="w-2 h-2 rounded-full" 
+                                    :style="{ backgroundColor: getClassColor(item.value) }"
+                                />
                                 <span>{{ item.label }}</span>
                             </div>
                         </template>
@@ -69,8 +83,11 @@
 v-for="label in labels" :key="label.id" 
                             class="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100">
                             <div class="flex items-center gap-2">
-                                <div class="w-2 h-2 rounded-full bg-blue-500"/>
-                                <span class="text-sm">Class {{ label.classId }}</span>
+                                <div 
+                                    class="w-2 h-2 rounded-full" 
+                                    :style="{ backgroundColor: getClassColor(label.classId) }"
+                                />
+                                <span class="text-sm">{{ classIdToName.get(label.classId) || `Class ${label.classId}` }}</span>
                             </div>
                             <UButton
                                 icon="i-heroicons-trash"
@@ -118,12 +135,26 @@ import { Canvas as FabricCanvas, FabricImage } from 'fabric'
 import { decodeBase64ToUuid } from '../../../../utils/tool'
 import { useLabel   } from '../../../../composables/useLabel'
 import type {LabelDetection, CustomRect} from '../../../../composables/useLabel';
+import chroma from 'chroma-js'
 
 interface Class {
     id: string;
     name: string;
     createdAt: string;
     updatedAt: string;
+}
+
+interface ClassItem {
+    value: string;
+    label: string;
+}
+
+const colors = computed(() => chroma.scale('Spectral').mode('lab').colors(10))
+
+// Get a consistent color for a class ID
+const getClassColor = (classId: string | number | null | undefined) => {
+    if (classId == null) return colors.value[colors.value.length - 1] // Default to first color if no class ID
+    return colors.value[Number(classId) % colors.value.length]   
 }
 
 const route = useRoute()
@@ -136,6 +167,9 @@ const canvasEl = ref<HTMLCanvasElement | null>(null)
 const fabricCanvas = ref<FabricCanvas | null>(null)
 const isDrawingMode = ref(false)
 const isSaving = ref(false)
+const selectedClass = ref<string | null>(null)
+const newClassName = ref('')
+const isAddingClass = ref(false)
 
 // TODO: Replace with actual user ID from auth system
 const userId = '123e4567-e89b-12d3-a456-426614174000'
@@ -215,6 +249,15 @@ const classItems = computed(() => classes.value.map((cls: Class) => ({
     value: cls.id,
 })))
 
+// Create a map of class ID to name
+const classIdToName = computed(() => {
+    const map = new Map<string, string>()
+    classes.value.forEach((cls: Class) => {
+        map.set(cls.id, cls.name)
+    })
+    return map
+})
+
 const {
     startDrawing,
     continueDrawing,
@@ -223,11 +266,7 @@ const {
     handleModification,
     handleDeletion,
     isDrawing
-} = useLabel(fabricCanvas, datasetId, imageId, refetchLabels)
-
-const selectedClass = ref(null)
-const newClassName = ref('')
-const isAddingClass = ref(false)
+} = useLabel(fabricCanvas, datasetId, imageId, refetchLabels, selectedClass, getClassColor)
 
 const toggleDrawingMode = (state: boolean) => {
     isDrawingMode.value = state

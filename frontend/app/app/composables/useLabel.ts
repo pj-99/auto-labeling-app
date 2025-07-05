@@ -6,7 +6,7 @@ import { gql } from 'graphql-tag'
 import { useMutation } from '@vue/apollo-composable'
 export interface LabelDetection {
     id?: string
-    classId: number
+    classId: string
     xCenter: number
     yCenter: number
     width: number
@@ -17,7 +17,7 @@ interface UpsertLabelSuccess {
     __typename: 'UpsertLabelSuccess'
     labels: Array<{
         id: string
-        classId: number
+        classId: string
         xCenter: number
         yCenter: number
         width: number
@@ -38,7 +38,7 @@ type UpsertLabelResult = {
 export interface CustomRect extends Rect {
     data?: {
         labelId: string
-        classId: number
+        classId: string
     }
 }
 
@@ -89,7 +89,9 @@ export const useLabel = (
     fabricCanvas: Ref<FabricCanvas | null>,
     datasetId: string,
     imageId: string,
-    onLabelUpdate?: () => Promise<void>
+    onLabelUpdate?: () => Promise<void>,
+    selectedClassId?: Ref<string | null>,
+    getClassColor?: (classId: string) => string
 ) => {
     const currentRect = ref<CustomRect | null>(null)
     const isDrawing = ref(false)
@@ -99,13 +101,16 @@ export const useLabel = (
     const { mutate: deleteLabel } = useMutation(DELETE_LABEL_MUTATION)
 
     const createRect = (options: Partial<CustomRect>) => {
+        const classId = options.data?.classId || selectedClassId?.value
+        const color = classId && getClassColor ? getClassColor(classId) : 'blue'
+
         return new Rect({
             fill: 'transparent',
-            stroke: 'blue',
+            stroke: color,
             strokeWidth: 2,
             cornerSize: 8,
             cornerStyle: 'circle',
-            cornerColor: 'blue',
+            cornerColor: color,
             transparentCorners: false,
             hasControls: true,
             ...options
@@ -152,7 +157,7 @@ export const useLabel = (
     }
 
     const finishDrawing = async () => {
-        if (!isDrawing.value || !currentRect.value || !fabricCanvas.value) return
+        if (!isDrawing.value || !currentRect.value || !fabricCanvas.value || !selectedClassId?.value) return
 
         isDrawing.value = false
         const canvas = fabricCanvas.value
@@ -162,9 +167,8 @@ export const useLabel = (
         const canvasWidth = canvas.width!
         const canvasHeight = canvas.height!
 
-
         const labelDetection = {
-            classId: 1, // Default class ID
+            classId: selectedClassId.value, // No need to parse as int anymore
             xCenter: (rect.left! + rect.width! / 2) / canvasWidth,
             yCenter: (rect.top! + rect.height! / 2) / canvasHeight,
             width: rect.width! / canvasWidth,
@@ -216,6 +220,11 @@ export const useLabel = (
             },
         })
 
+        rect.on('modified', (e) => {
+            console.log("rect modified scaleX", e.target.scaleX, "scaleY", e.target.scaleY)
+            console.log("rect modified width", e.target.width, "height", e.target.height)
+        })
+
         fabricCanvas.value.add(markRaw(rect))
         fabricCanvas.value.renderAll()
     }
@@ -225,15 +234,19 @@ export const useLabel = (
 
         const canvasWidth = fabricCanvas.value.width!
         const canvasHeight = fabricCanvas.value.height!
+        const scaleX = rect.scaleX!
+        const scaleY = rect.scaleY!
 
         const labelDetection = {
             id: rect.data?.labelId,
-            classId: rect.data?.classId || 1,
+            classId: rect.data?.classId || "1",
             xCenter: (rect.left! + rect.width! / 2) / canvasWidth,
             yCenter: (rect.top! + rect.height! / 2) / canvasHeight,
-            width: rect.width! / canvasWidth,
-            height: rect.height! / canvasHeight
+            width: (rect.width! * scaleX) / canvasWidth,
+            height: (rect.height! * scaleY) / canvasHeight
         }
+
+        console.log("modification labelDetection", labelDetection)
 
         try {
             await upsertLabels({
