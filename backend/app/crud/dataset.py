@@ -165,3 +165,15 @@ async def delete_class(
     )
 
     return result.modified_count > 0
+
+
+async def get_classes_by_dataset_id(
+    db: AsyncIOMotorDatabase, dataset_id: UUID
+) -> list[Class]:
+    if not await check_dataset_exists(db, dataset_id):
+        raise ValueError("Dataset not found")
+
+    result = await db["datasets"].find_one({"id": dataset_id})
+    classes = result.get("classes", [])
+    print(classes)
+    return [Class(**cls) for cls in classes]
