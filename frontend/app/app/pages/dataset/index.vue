@@ -64,19 +64,21 @@
 
       <!-- Datasets Grid -->
       <div v-else class="grid grid-cols-1 gap-6">
-        <UCard v-for="dataset in datasets" :key="dataset.updatedAt" class="hover:shadow-md transition-shadow">
-          <div class="flex items-start justify-between">
-            <div>
-              <h3 class="text-lg font-medium">{{ dataset.name }}</h3>
-              <p class="text-sm text-gray-500 mt-1">Updated at{{ formatDate(dataset.createdAt) }}</p>
+        <UCard v-for="dataset in datasets" :key="dataset.updatedAt" class="hover:shadow-md transition-shadow cursor-pointer">
+          <NuxtLink :to="`/dataset/${dataset.id}`" class="block">
+            <div class="flex items-start justify-between">
+              <div>
+                <h3 class="text-lg font-medium">{{ dataset.name }}</h3>
+                <p class="text-sm text-gray-500 mt-1">Updated at{{ formatDate(dataset.createdAt) }}</p>
+              </div>
+              <UDropdownMenu :items="datasetActions(dataset.id)" @click.stop>
+                <UButton color="gray" variant="ghost" icon="i-heroicons-ellipsis-horizontal-20-solid" />
+              </UDropdownMenu>
             </div>
-            <UDropdownMenu :items="datasetActions(dataset.id)">
-              <UButton color="gray" variant="ghost" icon="i-heroicons-ellipsis-horizontal-20-solid" />
-            </UDropdownMenu>
-          </div>
-          <div class="mt-4">
-            <p class="text-sm text-gray-600">{{ dataset.images?.length || 0 }} images</p>
-          </div>
+            <div class="mt-4">
+              <p class="text-sm text-gray-600">{{ dataset.images?.length || 0 }} images</p>
+            </div>
+          </NuxtLink>
         </UCard>
 
         <!-- Empty State -->
