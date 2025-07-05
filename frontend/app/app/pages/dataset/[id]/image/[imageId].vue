@@ -17,7 +17,7 @@
                     <div class="space-y-2">
                         <div v-for="i in 7" :key="i" class="flex items-center gap-2">
                             <UCheckbox />
-                            <div class="h-0.5 w-16 bg-gray-300"></div>
+                            <div class="h-0.5 w-16 bg-gray-300"/>
                         </div>
                     </div>
                 </div>
@@ -38,7 +38,7 @@
                 <!-- Image Info -->
                 <div class="mt-4">
                     <h3 class="text-lg font-medium">{{ image?.imageName || 'Mountain View' }}</h3>
-                    <div class="h-0.5 w-24 bg-gray-300 mt-2"></div>
+                    <div class="h-0.5 w-24 bg-gray-300 mt-2"/>
                 </div>
             </div>
         </div>
@@ -46,21 +46,22 @@
 </template>
 
 <script setup lang="ts">
-import { markRaw } from 'vue';
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { markRaw, ref, computed, onMounted, onUnmounted, watch, nextTick  } from 'vue';
 import { useRoute } from 'vue-router'
 import { useQuery } from '@vue/apollo-composable'
 import { gql } from 'graphql-tag'
-import { Canvas, FabricImage, Rect, Control } from 'fabric'
+import { Canvas, FabricImage, Rect } from 'fabric'
+import { decodeBase64ToUuid } from '../../../../utils/tool'
 
 const route = useRoute()
-const imageId = route.params.id
+
+const imageIdBase64 = route.params.imageId
+const imageId = decodeBase64ToUuid(imageIdBase64 as string)
+
+
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 const fabricCanvas = ref<Canvas | null>(null)
 const isDrawingMode = ref(false)
-let startPoint: { x: number; y: number } | null = null
-
-
 
 
 // TODO: Replace with actual user ID from auth system
@@ -79,8 +80,8 @@ const IMAGE_QUERY = gql`
     }
   }
 `
-
-const { result: imageData, loading } = useQuery(IMAGE_QUERY, {
+console.log("imageId", imageId)
+const { result: imageData } = useQuery(IMAGE_QUERY, {
     userId,
     imageId
 })
@@ -156,7 +157,6 @@ const initCanvas = async () => {
 }
 
 
-
 // Initialize canvas when component is mounted
 onMounted(async () => {
     // Wait for next tick to ensure canvas element is mounted
@@ -165,8 +165,6 @@ onMounted(async () => {
     if (image.value) {
         initCanvas()
     }
-
-
 
     // Cleanup function
     onUnmounted(() => {

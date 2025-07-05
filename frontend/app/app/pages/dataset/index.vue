@@ -92,11 +92,11 @@
 
 <script setup lang="ts">
 
-const openModal = ref(false)
 import { ref, computed } from 'vue'
 import { useQuery, useMutation } from '@vue/apollo-composable'
 import { gql } from 'graphql-tag'
 import { UDropdownMenu } from '#components'
+const openModal = ref(false)
 
 definePageMeta({
   layout: 'default'
