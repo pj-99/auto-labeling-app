@@ -1,7 +1,9 @@
+import os
 from datetime import datetime
 from uuid import UUID, uuid4
 
 import bson
+from api.deps import settings
 from models.dataset import Dataset
 from models.image import Image
 from models.object_class import Class
@@ -22,8 +24,9 @@ async def insert_image_to_dataset(
     db: AsyncIOMotorDatabase,
     user_id: UUID,
     dataset_id: UUID,
-    image_url: str,
+    gcs_file_name: str,
     image_name: str,
+    image_type: str,
 ) -> Image:
     if not await check_dataset_exists(db, dataset_id):
         raise ValueError("Dataset not found")
@@ -31,12 +34,17 @@ async def insert_image_to_dataset(
     if not validate_user(user_id):
         raise ValueError("User not found")
 
+    if image_type not in ["image/jpeg", "image/png", "image/jpg"]:
+        raise ValueError("Invalid image type")
+
     try:
+        image_url = f"https://storage.googleapis.com/{settings.GCP_STORAGE_BUCKET}/{gcs_file_name}"
         # Insert to images collection
         image_id = uuid4()
         image = Image(
             id=image_id,
             image_name=image_name,
+            image_type=image_type,
             image_url=image_url,
             created_by=user_id,
         )
@@ -92,7 +100,11 @@ async def get_datasets_by_user_id(
 
     collection = db["datasets"]
     user_id_binary = bson.Binary.from_uuid(user_id)
-    result = await collection.find({"user_id": user_id_binary}).to_list(length=None)
+    result = (
+        await collection.find({"user_id": user_id_binary})
+        .sort("updated_at", -1)
+        .to_list(length=None)
+    )
 
     datasets = []
     for doc in result:

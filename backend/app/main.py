@@ -3,6 +3,7 @@ from api.graphql.mutation import Mutation
 from api.graphql.queries import Query
 from api.image_upload.image_upload import GenerateSignedUrlRequest, generate_signed_url
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from strawberry.fastapi import GraphQLRouter
 
 schema = strawberry.Schema(query=Query, mutation=Mutation)
@@ -10,6 +11,15 @@ schema = strawberry.Schema(query=Query, mutation=Mutation)
 graphql_app = GraphQLRouter(schema)
 
 app = FastAPI()
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 
 @app.get("/health")

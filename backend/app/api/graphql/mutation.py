@@ -48,11 +48,16 @@ class Mutation:
 
     @strawberry.mutation
     async def insert_image_to_dataset(
-        self, user_id: UUID, dataset_id: UUID, image_url: str, image_name: str
+        self,
+        user_id: UUID,
+        dataset_id: UUID,
+        gcs_file_name: str,
+        image_name: str,
+        image_type: str,
     ) -> Image:
         db: AsyncIOMotorDatabase = await anext(get_db())
         return await insert_image_to_dataset(
-            db, user_id, dataset_id, image_url, image_name
+            db, user_id, dataset_id, gcs_file_name, image_name, image_type
         )
 
     @strawberry.mutation
