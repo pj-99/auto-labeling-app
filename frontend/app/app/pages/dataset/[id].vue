@@ -6,15 +6,15 @@
         <UButton
           icon="i-heroicons-arrow-left"
           variant="ghost"
-          color="gray"
+          color="primary"
           to="/dataset"
         />
-        <h1 class="text-2xl font-semibold text-gray-900">{{ dataset.name }}</h1>
+        <h1 class="text-2xl font-semibold text-gray-900">{{ dataset?.name }}</h1>
       </div>
       <p class="text-gray-600">Upload and manage images in this dataset</p>
       <div class="mt-2 flex items-center gap-2">
-        <UBadge color="primary" size="sm">{{ images.length }} images</UBadge>
-        <UBadge color="gray" size="sm">Created {{ formatDate(dataset.createdAt) }}</UBadge>
+        <UBadge variant="soft" size="md">{{ dataset?.images?.length || 0 }} images</UBadge>
+        <UBadge variant="outline" size="md">Created {{ formatDate(dataset?.createdAt) }}</UBadge>
       </div>
     </div>
 
@@ -48,18 +48,22 @@
     </div>
 
     <!-- Images Grid Section -->
-    <div class="mt-12">
+    <div class="mt-12 mb-12">
       <h2 class="text-xl font-medium mb-4">Dataset Images</h2>
       
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+      <div v-if="loading" class="text-center py-8">
+        <p class="text-gray-600">Loading images...</p>
+      </div>
+      
+      <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
         <div 
-          v-for="image in images" 
+          v-for="image in dataset?.images" 
           :key="image.id" 
           class="aspect-square relative overflow-hidden rounded-lg bg-gray-100"
         >
           <NuxtImg 
-            :src="image.url" 
-            :alt="image.name"
+            :src="image.imageUrl" 
+            :alt="image.imageName"
             class="absolute inset-0 w-full h-full object-cover"
             loading="lazy"
             sizes="(min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
@@ -71,7 +75,7 @@
       </div>
 
       <!-- Empty State -->
-      <div v-if="images.length === 0" class="text-center py-8">
+      <div v-if="!loading && (!dataset?.images || dataset.images.length === 0)" class="text-center py-8">
         <p class="text-gray-600">No images found. Upload some images to get started.</p>
       </div>
     </div>
@@ -79,9 +83,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+
+import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useToast } from '#imports'
+import { useQuery, useMutation } from '@vue/apollo-composable'
+import { gql } from 'graphql-tag'
+
+interface Image {
+  id: string
+  imageName: string
+  imageUrl: string
+  createdAt: string
+  updatedAt: string
+  caption: string
+  createdBy: string
+}
+
+interface Dataset {
+  id: string
+  name: string
+  createdAt: string
+  updatedAt: string
+  createdBy: string
+  images: Image[]
+}
 
 const route = useRoute()
 const datasetId = route.params.id
@@ -89,68 +115,64 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const uploading = ref(false)
 const toast = useToast()
 
-// Mock dataset data
-const dataset = ref({
-  id: datasetId,
-  name: 'Street Signs Dataset',
-  createdAt: '2024-03-15T10:30:00Z',
-  updatedAt: '2024-03-15T10:30:00Z'
+// TODO: Replace with actual user ID from auth system
+const userId = '123e4567-e89b-12d3-a456-426614174000'
+
+// GraphQL Queries
+const DATASET_QUERY = gql`
+  query GetDatasets($userId: UUID!) {
+    datasets(userId: $userId) {
+      id
+      name
+      createdAt
+      updatedAt
+      createdBy
+      images {
+        id
+        imageName
+        imageUrl
+        createdAt
+        updatedAt
+        caption
+        createdBy
+      }
+    }
+  }
+`
+
+const INSERT_IMAGE_MUTATION = gql`
+  mutation InsertImageToDataset($userId: UUID!, $datasetId: UUID!, $gcsFileName: String!, $imageName: String!, $imageType: String!) {
+    insertImageToDataset(userId: $userId, datasetId: $datasetId, gcsFileName: $gcsFileName, imageName: $imageName, imageType: $imageType) {
+      id
+      imageName
+      imageUrl  
+      createdAt
+      updatedAt
+      caption
+      createdBy
+    }
+  }
+`
+
+// Query for dataset data
+const { result: datasetsData, loading, refetch } = useQuery(DATASET_QUERY, {
+  userId
 })
 
-// Mock data for images with more realistic names and variety
-const images = ref([
-  {
-    id: '1',
-    name: 'stop_sign_01.jpg',
-    url: 'https://i.imgur.com/TK0hhSP.jpg'
-  },
-  {
-    id: '2',
-    name: 'yield_sign_02.jpg',
-    url: 'https://i.imgur.com/TK0hhSP.jpg'
-  },
-  {
-    id: '3',
-    name: 'speed_limit_30.jpg',
-    url: 'https://i.imgur.com/TK0hhSP.jpg'
-  },
-  {
-    id: '4',
-    name: 'crosswalk_sign_01.jpg',
-    url: 'https://i.imgur.com/TK0hhSP.jpg'
-  },
-  {
-    id: '5',
-    name: 'no_parking_sign.jpg',
-    url: 'https://i.imgur.com/TK0hhSP.jpg'
-  },
-  {
-    id: '6',
-    name: 'one_way_sign_02.jpg',
-    url: 'https://i.imgur.com/TK0hhSP.jpg'
-  },
-  {
-    id: '7',
-    name: 'stop_sign_night_01.jpg',
-    url: 'https://i.imgur.com/TK0hhSP.jpg'
-  },
-  {
-    id: '8',
-    name: 'yield_sign_rain.jpg',
-    url: 'https://i.imgur.com/TK0hhSP.jpg'
-  },
-  {
-    id: '9',
-    name: 'speed_limit_55.jpg',
-    url: 'https://i.imgur.com/TK0hhSP.jpg'
-  }
-])
+// Get the current dataset from the query result
+const dataset = computed(() => {
+  return datasetsData.value?.datasets.find((d: Dataset) => d.id === datasetId)
+})
+
+// Mutation for image upload
+const { mutate: insertImageMutation } = useMutation(INSERT_IMAGE_MUTATION)
 
 const handleUploadClick = () => {
   fileInput.value?.click()
 }
 
 const formatDate = (dateString: string) => {
+  if (!dateString) return ''
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -158,29 +180,78 @@ const formatDate = (dateString: string) => {
   })
 }
 
+// Function to get signed URL from FastAPI
+const getSignedUrl = async (contentType: string) => {
+  const { public: { apiBase } } = useRuntimeConfig()
+  console.log('API base:', apiBase)
+
+  try {
+    const response = await fetch(`${apiBase}/generate-signed-url`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content_type: contentType }),
+    })
+    
+    if (!response.ok) {
+      throw new Error('Failed to get signed URL')
+    }
+    
+    return await response.json()
+  } catch (error) {
+    console.error('Error getting signed URL:', error)
+    throw error
+  }
+}
+
+// Function to upload file using signed URL
+const uploadFileToGCS = async (file: File, signedUrl: string) => {
+  try {
+    const response = await fetch(signedUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': file.type,
+      },
+      body: file,
+    })
+    
+    if (!response.ok) {
+      throw new Error('Failed to upload file to storage')
+    }
+  } catch (error) {
+    console.error('Error uploading to GCS:', error)
+    throw error
+  }
+}
+
 const handleFileChange = async (event: Event) => {
   const input = event.target as HTMLInputElement
   if (!input.files?.length) return
 
   uploading.value = true
-  
   try {
-    // Mock upload process
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    // Add new images to the grid
-    Array.from(input.files).forEach((file, index) => {
-      console.log('Processing file:', {
-        name: file.name,
-        size: file.size,
-        type: file.type
+    // Process each file
+    for (const file of Array.from(input.files)) {
+
+      // Step 1: Get signed URL for the file
+      const { url: signedUrl, filename } = await getSignedUrl(file.type)
+      
+      // Step 2: Upload the file to GCS using the signed URL
+      await uploadFileToGCS(file, signedUrl)
+      
+      // Step 3: Insert image record via GraphQL mutation
+      await insertImageMutation({
+        userId,
+        datasetId,
+        gcsFileName: filename,
+        imageName: file.name,
+        imageType: file.type
       })
-      images.value.push({
-        id: `new-${Date.now()}-${index}`,
-        name: file.name,
-        url: 'https://i.imgur.com/TK0hhSP.jpg' // Using mock image URL
-      })
-    })
+    }
+
+    // Refetch dataset to update the UI
+    await refetch()
 
     // Show success notification
     toast.add({
@@ -192,9 +263,11 @@ const handleFileChange = async (event: Event) => {
       icon: 'i-heroicons-check-circle'
     })
   } catch (error) {
+    console.error('Upload error:', error)
     // Show error notification
     toast.add({
       title: 'Failed to upload images',
+      description: error instanceof Error ? error.message : 'Unknown error occurred',
       color: 'error',
       duration: 5000,
       icon: 'i-heroicons-exclamation-triangle'
