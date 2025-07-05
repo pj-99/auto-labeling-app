@@ -3,7 +3,7 @@
         <!-- Main Content -->
         <div class="mx-auto flex gap-8">
             <!-- Left Sidebar -->
-            <div class="w-48 flex flex-col gap-6">
+            <div class="w-48 shrink-0 flex flex-col gap-6 bg-white rounded-lg shadow-lg border border-gray-200 p-4 h-fit">
                 <UButton icon="i-heroicons-sparkles" color="neutral">
                     Auto Labeling
                 </UButton>
@@ -75,12 +75,12 @@
                 <!-- Label List -->
                 <div class="flex flex-col gap-2">
                     <h2 class="text-lg font-medium mb-2">Label List</h2>
-                    <div class="space-y-2">
+                    <div class="space-y-2 max-h-[calc(100vh-36rem)] overflow-y-auto">
                         <div v-if="labels.length === 0" class="text-gray-500 text-sm">
                             No labels yet
                         </div>
                         <div
-v-for="label in labels" :key="label.id" 
+                            v-for="label in labels" :key="label.id" 
                             class="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100">
                             <div class="flex items-center gap-2">
                                 <div 
@@ -102,10 +102,10 @@ v-for="label in labels" :key="label.id"
             </div>
 
             <!-- Right Content Area -->
-            <div class="flex-1 min-h-[calc(100vh-8rem)]">
+            <div class="flex-1 min-h-[calc(100vh-8rem)] flex flex-col">
                 <!-- Image Container -->
                 <div
-                    class="relative w-full h-[calc(100vh-12rem)] border-2 border-gray-300 rounded-lg bg-gray-50 flex items-center justify-center"
+                    class="relative flex-1 border-2 border-gray-300 rounded-lg bg-gray-50 flex items-center justify-center overflow-hidden"
                     @mousedown="handleMouseDown"
                     @mousemove="handleMouseMove"
                     @mouseup="handleMouseUp">
@@ -127,7 +127,7 @@ v-for="label in labels" :key="label.id"
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRoute } from 'vue-router'
 import { useQuery, useMutation } from '@vue/apollo-composable'
 import { gql } from 'graphql-tag'
@@ -270,6 +270,9 @@ const {
 
 const toggleDrawingMode = (state: boolean) => {
     isDrawingMode.value = state
+    if (!fabricCanvas.value) return
+
+    fabricCanvas.value!.selection = !state
 }
 
 const handleMouseDown = (e: MouseEvent) => {
@@ -292,6 +295,12 @@ const handleMouseUp = () => {
 
 const initCanvas = async () => {
     if (!image.value || !canvasEl.value) return
+
+    // Clean up existing canvas if it exists
+    if (fabricCanvas.value) {
+        fabricCanvas.value.dispose()
+        fabricCanvas.value = null
+    }
 
     // Load main image first to get its dimensions
     const img = await FabricImage.fromURL(image.value.imageUrl)
@@ -325,7 +334,6 @@ const initCanvas = async () => {
         uniformScaling: false,
     })
 
-
     // Scale image to fit the canvas (now they have the same aspect ratio)
     img.scaleToWidth(canvasWidth)
     
@@ -340,7 +348,6 @@ const initCanvas = async () => {
         selectable: false,
         evented: false
     })
-    fabricCanvas.value.add(img)
 
     // Add existing labels
     labels.value.forEach((label: LabelDetection) => {
@@ -378,8 +385,6 @@ const initCanvas = async () => {
         }
     })
 
-    // Add a test rect
-   
     fabricCanvas.value.renderAll()
 }
 
@@ -454,7 +459,7 @@ const createNewClass = async () => {
     }
 }
 
-// Initialize canvas when component is mounted
+// Initialize canvas when component is mounted and watch for image changes
 onMounted(async () => {
     await nextTick()
     if (image.value) {
@@ -462,14 +467,23 @@ onMounted(async () => {
         // Add keyboard event listener with the new handler
         window.addEventListener('keydown', handleKeyDown)
     }
+})
 
-    // Cleanup function
-    onUnmounted(() => {
-        window.removeEventListener('keydown', handleKeyDown)
-        if (fabricCanvas.value) {
-            fabricCanvas.value.dispose()
-            fabricCanvas.value = null
-        }
-    })
+// Watch for image changes
+watch(() => image.value?.imageUrl, async (newUrl, oldUrl) => {
+    if (newUrl && newUrl !== oldUrl) {
+        await nextTick()
+        initCanvas()
+    }
+}, { immediate: true })
+
+
+// Cleanup function
+onUnmounted(() => {
+    window.removeEventListener('keydown', handleKeyDown)
+    if (fabricCanvas.value) {
+        fabricCanvas.value.dispose()
+        fabricCanvas.value = null
+    }
 })
 </script>
