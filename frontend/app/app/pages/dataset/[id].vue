@@ -56,22 +56,26 @@
       </div>
       
       <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-        <div 
+        <NuxtLink 
           v-for="image in dataset?.images" 
           :key="image.id" 
-          class="aspect-square relative overflow-hidden rounded-lg bg-gray-100"
+          :to="`/image/${image.id}`"
+          class="aspect-square relative overflow-hidden rounded-lg bg-gray-100 group hover:ring-2 hover:ring-primary-500 transition-all duration-200"
         >
           <NuxtImg 
             :src="image.imageUrl" 
             :alt="image.imageName"
-            class="absolute inset-0 w-full h-full object-cover"
+            class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
             loading="lazy"
             sizes="(min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
             :imgAttrs="{
               class: 'absolute inset-0 w-full h-full object-cover'
             }"
           />
-        </div>
+          <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <p class="text-white text-sm truncate">{{ image.imageName }}</p>
+          </div>
+        </NuxtLink>
       </div>
 
       <!-- Empty State -->

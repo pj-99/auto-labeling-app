@@ -4,6 +4,16 @@
       <div class="flex justify-between h-16">
         <!-- Left side - Logo and main navigation -->
         <div class="flex">
+          <!-- Back Button (when needed) -->
+          <div v-if="showBackButton" class="flex-shrink-0 flex items-center mr-4">
+            <UButton
+              icon="i-heroicons-arrow-left"
+              variant="ghost"
+              color="neutral"
+              @click="router.back()"
+            />
+          </div>
+
           <!-- Logo -->
           <div class="flex-shrink-0 flex items-center">
             <NuxtLink to="/" class="text-xl font-bold text-gray-900">
@@ -30,7 +40,7 @@
         <!-- Right side - User menu -->
         <div class="flex items-center">
           <UButton
-            color="gray"
+            color="neutral"
             variant="ghost"
             icon="i-heroicons-user-circle"
           />
@@ -41,5 +51,15 @@
 </template>
 
 <script setup lang="ts">
-// Component is ready for future expansion with more navigation items and user menu
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+
+const route = useRoute()
+const router = useRouter()
+
+// Show back button on specific routes
+const showBackButton = computed(() => {
+  return route.path.startsWith('/image/') || 
+         (route.path.startsWith('/dataset/') && route.params.id)
+})
 </script> 

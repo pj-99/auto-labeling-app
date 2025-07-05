@@ -19,6 +19,7 @@
     "@nuxt/image": "^1.10.0",
     "@nuxt/ui": "^3.2.0",
     "@vue/apollo-composable": "^4.2.2",
+    "fabric": "^6.7.0",
     "graphql-tag": "^2.12.6",
     "nuxt": "^3.17.6"
   },
