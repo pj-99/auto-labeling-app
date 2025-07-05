@@ -11,6 +11,53 @@
                     {{ isDrawingMode ? 'Exit Drawing Mode' : 'Draw A Box' }}
                 </UButton>
 
+                <UButton
+                    icon="i-heroicons-check-circle"
+                    color="primary"
+                    :loading="isSaving"
+                    @click="saveCurrentModifications"
+                >
+                    Save Changes
+                </UButton>
+                <!-- Class List -->
+                <div class="flex flex-col gap-2">
+                    <h2 class="text-lg font-medium mb-2">Class Selector</h2>
+                    <!-- Class Selection -->
+                    <USelect
+                        v-model="selectedClass"
+                        :items="classItems"
+                        placeholder="Select a class"
+                        icon="i-heroicons-tag"
+                        :loading="isAddingClass"
+                        class="mb-2"
+                    >
+                        <template #item="{ item }">
+                            <div class="flex items-center gap-2">
+                                <div class="w-2 h-2 rounded-full bg-primary-500"/>
+                                <span>{{ item.label }}</span>
+                            </div>
+                        </template>
+                    </USelect>
+                    <!-- Add New Class -->
+                    <div class="flex gap-2">
+                        <UInput
+                            v-model="newClassName"
+                            placeholder="New class name"
+                            size="sm"
+                            class="flex-1"
+                            @keyup.enter="createNewClass"
+                        />
+                        <UButton
+                            icon="i-heroicons-plus"
+                            color="primary"
+                            variant="soft"
+                            size="sm"
+                            :loading="isAddingClass"
+                            :disabled="!newClassName"
+                            @click="createNewClass"
+                        />
+                    </div>
+                </div>
                 <!-- Label List -->
                 <div class="flex flex-col gap-2">
                     <h2 class="text-lg font-medium mb-2">Label List</h2>
@@ -65,12 +112,19 @@ v-for="label in labels" :key="label.id"
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router'
-import { useQuery } from '@vue/apollo-composable'
+import { useQuery, useMutation } from '@vue/apollo-composable'
 import { gql } from 'graphql-tag'
 import { Canvas as FabricCanvas, FabricImage } from 'fabric'
 import { decodeBase64ToUuid } from '../../../../utils/tool'
 import { useLabel   } from '../../../../composables/useLabel'
 import type {LabelDetection, CustomRect} from '../../../../composables/useLabel';
+
+interface Class {
+    id: string;
+    name: string;
+    createdAt: string;
+    updatedAt: string;
+}
 
 const route = useRoute()
 
@@ -81,6 +135,7 @@ const datasetId = decodeBase64ToUuid(route.params.id as string)
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 const fabricCanvas = ref<FabricCanvas | null>(null)
 const isDrawingMode = ref(false)
+const isSaving = ref(false)
 
 // TODO: Replace with actual user ID from auth system
 const userId = '123e4567-e89b-12d3-a456-426614174000'
@@ -112,6 +167,28 @@ const LABEL_DETECTIONS_QUERY = gql`
   }
 `
 
+const CLASSES_QUERY = gql`
+  query GetClasses($datasetId: UUID!) {
+    classes(datasetId: $datasetId) {
+      id
+      name
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+const INSERT_CLASS_MUTATION = gql`
+  mutation InsertClass($datasetId: UUID!, $name: String!) {
+    insertClass(datasetId: $datasetId, name: $name) {
+      id
+      name
+      createdAt
+      updatedAt
+    }
+  }
+`
+
 const { result: imageData } = useQuery(IMAGE_QUERY, {
     userId,
     imageId
@@ -122,8 +199,21 @@ const { result: labelData, refetch: refetchLabels } = useQuery(LABEL_DETECTIONS_
     imageId
 })
 
+const { result: classesData, refetch: refetchClasses } = useQuery(CLASSES_QUERY, {
+    datasetId
+})
+
+const { mutate: insertClass } = useMutation(INSERT_CLASS_MUTATION)
+
 const image = computed(() => imageData.value?.image)
 const labels = computed(() => labelData.value?.labelDetections || [])
+const classes = computed(() => classesData.value?.classes || [] as Class[])
+
+// Format classes for USelect
+const classItems = computed(() => classes.value.map((cls: Class) => ({
+    label: cls.name,
+    value: cls.id,
+})))
 
 const {
     startDrawing,
@@ -135,7 +225,9 @@ const {
     isDrawing
 } = useLabel(fabricCanvas, datasetId, imageId, refetchLabels)
 
-
+const selectedClass = ref(null)
+const newClassName = ref('')
+const isAddingClass = ref(false)
 
 const toggleDrawingMode = (state: boolean) => {
     isDrawingMode.value = state
@@ -283,6 +375,43 @@ const handleKeyDown = async (e: KeyboardEvent) => {
             fabricCanvas.value.remove(rect)
             fabricCanvas.value.renderAll()
         }
+    }
+}
+
+const saveCurrentModifications = async () => {
+    if (!fabricCanvas.value) return
+    
+    isSaving.value = true
+    try {
+        // Get all rectangle objects from canvas
+        const objects = fabricCanvas.value.getObjects('rect')
+        // Update each rectangle
+        for (const obj of objects) {
+            const rect = obj as CustomRect
+            if (rect) {
+                await handleModification(rect)
+            }
+        }
+    } finally {
+        isSaving.value = false
+    }
+}
+
+const createNewClass = async () => {
+    if (!newClassName.value) return
+    
+    isAddingClass.value = true
+    try {
+        await insertClass({
+            datasetId,
+            name: newClassName.value
+        })
+        newClassName.value = ''
+        await refetchClasses()
+    } catch (error) {
+        console.error('Failed to create class:', error)
+    } finally {
+        isAddingClass.value = false
     }
 }
 
