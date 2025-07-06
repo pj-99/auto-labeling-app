@@ -92,6 +92,7 @@ async def create_dataset(
         updated_at=doc["updated_at"],
         images=[],
         classes=[],
+        training_type=TrainingType(doc["training_type"]),
     )
 
 
@@ -129,6 +130,11 @@ async def get_datasets_by_user_id(
                 created_at=doc["created_at"],
                 updated_at=doc["updated_at"],
                 images=images,
+                training_type=(
+                    TrainingType(doc["training_type"])
+                    if "training_type" in doc
+                    else TrainingType.DETECT
+                ),
             )
         )
 
