@@ -11,7 +11,6 @@ settings = Settings()
 
 # TODO: singleton
 def get_storage_client() -> storage.Client:
-
     return storage.Client()
 
 

@@ -9,7 +9,14 @@ class GenerateSignedUrlRequest(BaseModel):
 
 
 def generate_signed_url(content_type: str = "application/octet-stream") -> dict:
-    filename = f"{uuid.uuid4()}.jpg"
+    if len(content_type.split("/")) < 2 or content_type.split("/")[0] != "image":
+        raise ValueError("Invalid content type")
+
+    file_type = content_type.split("/")[1]
+
+    filename = str(uuid.uuid4()) + "." + file_type
+    # TODO: check if file already exists
+    # TODO: check if file size is too large
     blob = get_storage_bucket().blob(filename)
 
     url = blob.generate_signed_url(
