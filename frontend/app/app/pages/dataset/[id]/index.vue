@@ -50,7 +50,7 @@
 v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 
       gap-4">
         <NuxtLink
-v-for="image in dataset?.images" :key="image.id" :to="`/dataset/${datasetId}/image/${encodeUuidToBase64(image.id)}`"
+v-for="image in dataset?.images" :key="image.id" :to="`/dataset/${datasetId}/image/${encodeUuidToBase64(image.id)}/${dataset.trainingType.toLowerCase()}`"
           class="aspect-square relative overflow-hidden rounded-lg bg-gray-100 group hover:ring-2 hover:ring-primary-500 transition-all duration-200">
           <NuxtImg
 :src="image.imageUrl" :alt="image.imageName"

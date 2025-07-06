@@ -31,7 +31,7 @@
                   <DatasetBadge :training-type="dataset.trainingType" />
                 </div>
 
-                <p class="text-sm text-gray-500 mt-1">Updated at{{ formatDate(dataset.createdAt) }}</p>
+                <p class="text-sm text-gray-500 mt-1">Updated {{ formatDate(dataset.createdAt) }}</p>
               </div>
               <UDropdownMenu :items="datasetActions(dataset.id)" @click.stop>
                 <UButton color="neutral" variant="ghost" icon="i-heroicons-ellipsis-horizontal-20-solid" />

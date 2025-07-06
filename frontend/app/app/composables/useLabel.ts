@@ -220,11 +220,6 @@ export const useLabel = (
             },
         })
 
-        rect.on('modified', (e) => {
-            console.log("rect modified scaleX", e.target.scaleX, "scaleY", e.target.scaleY)
-            console.log("rect modified width", e.target.width, "height", e.target.height)
-        })
-
         fabricCanvas.value.add(markRaw(rect))
         fabricCanvas.value.renderAll()
     }
@@ -245,8 +240,6 @@ export const useLabel = (
             width: (rect.width! * scaleX) / canvasWidth,
             height: (rect.height! * scaleY) / canvasHeight
         }
-
-        console.log("modification labelDetection", labelDetection)
 
         try {
             await upsertLabels({
