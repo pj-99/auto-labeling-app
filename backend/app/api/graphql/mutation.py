@@ -11,6 +11,7 @@ from crud.dataset import (
     insert_image_to_dataset,
 )
 from crud.label import delete_label_detections, upsert_label_detections
+from models.dataset import TrainingType
 from models.label_detection import LabelDetectionInput as LabelDetectionInputModel
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -42,9 +43,11 @@ class DeleteLabelError:
 class Mutation:
 
     @strawberry.mutation
-    async def create_dataset(self, user_id: UUID, name: str) -> Dataset:
+    async def create_dataset(
+        self, user_id: UUID, name: str, training_type: TrainingType
+    ) -> Dataset:
         db: AsyncIOMotorDatabase = await anext(get_db())
-        return await create_dataset(db, user_id, name)
+        return await create_dataset(db, user_id, name, training_type)
 
     @strawberry.mutation
     async def insert_image_to_dataset(

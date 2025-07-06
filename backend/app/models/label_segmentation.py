@@ -1,11 +1,11 @@
-from typing import List
-from uuid import UUID
+from typing import List, Tuple
 
-from pydantic import BaseModel
+from models.label import LabelBase
 
 
-class LabelSegmentation(BaseModel):
-    dataset_id: UUID
-    image_id: UUID
-    class_id: int
-    segmentation: List[float]
+class LabelSegmentation(LabelBase):
+    """
+    The core data of segmentation
+    """
+
+    mask: List[Tuple[float, float]]
