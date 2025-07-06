@@ -26,7 +26,11 @@
           <NuxtLink :to="`/dataset/${dataset.id}`" class="block">
             <div class="flex items-start justify-between">
               <div>
-                <h3 class="text-lg font-medium">{{ dataset.name }}</h3>
+                <div class="flex items-baseline gap-2 mb-2">
+                  <h2 class="text-lg font-medium">{{ dataset.name }}</h2>
+                  <DatasetBadge :training-type="dataset.trainingType" />
+                </div>
+
                 <p class="text-sm text-gray-500 mt-1">Updated at{{ formatDate(dataset.createdAt) }}</p>
               </div>
               <UDropdownMenu :items="datasetActions(dataset.id)" @click.stop>
@@ -52,11 +56,17 @@
 import { computed } from 'vue'
 import { useQuery } from '@vue/apollo-composable'
 import { gql } from 'graphql-tag'
-import CreateDatasetModal from '@/components/dataset/CreateDatasetModal.vue'
+// import CreateDatasetModal from '@/components/dataset/CreateDatasetModal.vue'
 
 definePageMeta({
   layout: 'default'
 })
+
+// TODO: this define twice, can be improved
+enum DatasetTrainingType {
+    DETECT = 'DETECT',
+    SEGMENT = 'SEGMENT'
+}
 
 interface Dataset {
   id: string
@@ -65,6 +75,7 @@ interface Dataset {
   updatedAt: string
   createdBy: string
   images: Image[]
+  trainingType: DatasetTrainingType
 }
 
 interface Image {
@@ -85,6 +96,7 @@ const DATASETS_QUERY = gql`
       createdAt
       updatedAt
       createdBy
+      trainingType
       images {
         id
       }

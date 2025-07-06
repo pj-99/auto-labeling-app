@@ -2,19 +2,22 @@
   <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
     <!-- Header Section -->
     <div class="mb-8">
+      <div class="mb-8">
       <div class="flex items-center gap-3 mb-2">
-        <UButton icon="i-heroicons-arrow-left" variant="ghost" color="primary" to="/dataset" />
-        <h1 class="text-2xl font-semibold text-gray-900">
+        <div class="flex items-baseline gap-2">
+          <h1 class="text-2xl font-semibold text-gray-900">
           {{ dataset?.name }}
-        </h1>
+          </h1>
+        <DatasetBadge :training-type="dataset?.trainingType" />
+        </div>
+
       </div>
       <p class="text-gray-600">Upload and manage images in this dataset</p>
-      <div class="mt-2 flex items-center gap-2">
-        <UBadge variant="soft" size="md">{{ dataset?.images?.length || 0 }} images</UBadge>
-        <UBadge variant="outline" size="md">Created {{ formatDate(dataset?.createdAt) }}</UBadge>
+        <div class="mt-2 flex items-center gap-2">
+          <UBadge variant="soft" size="md">{{ dataset?.images?.length || 0 }} images</UBadge>
+          <UBadge variant="outline" size="md">Created {{ formatDate(dataset?.createdAt) }}</UBadge>
+        </div>
       </div>
-    </div>
-
     <!-- Upload Section -->
     <div class="mb-12">
       <h2 class="text-xl font-medium mb-4">Upload Images</h2>
@@ -70,7 +73,7 @@ v-for="image in dataset?.images" :key="image.id" :to="`/dataset/${datasetId}/ima
       </div>
     </div>
   </div>
-</template>
+</div></template>
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
@@ -78,6 +81,7 @@ import { useRoute } from "vue-router";
 import { useToast } from "#imports";
 import { useQuery, useMutation } from "@vue/apollo-composable";
 import { gql } from "graphql-tag";
+import type { DatasetTrainingType } from "~/components/dataset/dataset";
 
 interface Image {
   id: string;
@@ -96,6 +100,7 @@ interface Dataset {
   updatedAt: string;
   createdBy: string;
   images: Image[];
+  trainingType: DatasetTrainingType;
 }
 
 const route = useRoute();
@@ -116,6 +121,7 @@ const DATASET_QUERY = gql`
       createdAt
       updatedAt
       createdBy
+      trainingType
       images {
         id
         imageName
