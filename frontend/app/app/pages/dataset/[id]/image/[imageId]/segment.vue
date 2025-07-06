@@ -344,7 +344,7 @@ const initCanvas = async () => {
     img.scaleToWidth(canvasWidth)
     
     // Add image to canvas
-    fabricCanvas.value.add(img)
+    fabricCanvas.value.add(markRaw(img))
     // Centering
     img.set({
         left: fabricCanvas.value.width! / 2,
@@ -365,8 +365,7 @@ const initCanvas = async () => {
 
     fabricCanvas.value.on('object:moving', (e) => {
         console.log("object:moving", e)
-        console.log(e.target.points)
-        const obj = e.target as CustomRect;
+        const obj = e.target as CustomPolygon;
         // Bounded in canvas
         if (obj.left! < 0) {
             obj.left = 0;
@@ -388,13 +387,6 @@ const initCanvas = async () => {
 
         console.log("object:modified seg", obj)
         await handleSegModification(obj as CustomPolygon)
-    })
-
-    fabricCanvas.value.on('object:removed', async (e) => {
-        const obj = e.target
-        if (!obj || !('data' in obj)) return
-
-        await handleSegDeletion(obj as CustomPolygon)
     })
 
     fabricCanvas.value.renderAll()

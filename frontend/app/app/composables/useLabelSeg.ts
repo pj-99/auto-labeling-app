@@ -2,7 +2,7 @@
 import type { Ref } from 'vue';
 import { ref } from 'vue'
 import { controlsUtils, Point, Polygon } from 'fabric';
-import type { Canvas as FabricCanvas, XY } from 'fabric';
+import type { Canvas as FabricCanvas, FabricObject, XY } from 'fabric';
 import { gql } from 'graphql-tag'
 import { useMutation } from '@vue/apollo-composable'
 
@@ -107,6 +107,7 @@ export const useLabelSeg = (
             cornerColor: color,
             transparentCorners: false,
             hasControls: true,
+            objectCaching: false,
         }) as CustomPolygon;
 
         polygon.editing = false;
@@ -169,12 +170,13 @@ export const useLabelSeg = (
     const continueDrawing = (e: MouseEvent) => {
         if (!isDrawing.value || !currentPolygon.value || !fabricCanvas.value) return
 
-        const canvas = fabricCanvas.value
-        const pointer = canvas.getPointer(e)
+        const pointer = fabricCanvas.value.getScenePoint(e)
 
         if (points.value.length > 0) {
             currentPolygon.value?.set('points', [...points.value, { x: pointer.x, y: pointer.y }])
-            canvas.renderAll()
+            currentPolygon.value?.setCoords()
+
+            fabricCanvas.value.renderAll()
         }
     }
 
@@ -223,11 +225,26 @@ export const useLabelSeg = (
             console.error('Failed to create segmentation label:', error)
         }
 
+
+        // Somehow the finied polygon cannot be selected
+        // So workaround by adding a identical polygon
+        const newPolygon = createPolygon({
+            points: points.value,
+            data: {
+                classId: polygon.data?.classId || selectedClassId.value,
+                labelId: polygon.data?.labelId || ""
+            },
+        })
+        canvas.add(markRaw(newPolygon))
+        canvas.remove(currentPolygon.value as unknown as FabricObject)
+        canvas.renderAll()
+
         // Reset drawing state
-        isDrawing.value = false
+        currentPolygon.value.selectable = true
         currentPolygon.value = null
         points.value = []
-        canvas.renderAll()
+
+        isDrawing.value = false
     }
 
     const addExistingLabel = (label: LabelSegmentation) => {
@@ -299,6 +316,7 @@ export const useLabelSeg = (
                 console.error('Failed to delete segmentation label:', error)
             }
         }
+        fabricCanvas.value?.remove(polygon)
     }
 
     const handleKeyDown = async (e: KeyboardEvent) => {
@@ -309,8 +327,9 @@ export const useLabelSeg = (
             isDrawing.value = false
             points.value = []
             if (currentPolygon.value) {
-                fabricCanvas.value.remove(currentPolygon)
+                fabricCanvas.value.remove(currentPolygon.value)
                 currentPolygon.value = null
+                fabricCanvas.value.renderAll()
             }
             fabricCanvas.value.renderAll()
         } else if (e.key === 'Enter' && isDrawing.value) {

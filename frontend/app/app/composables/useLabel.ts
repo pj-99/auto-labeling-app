@@ -202,6 +202,8 @@ export const useLabel = (
         currentRect.value = null
         startPoint.value = null
         canvas.renderAll()
+
+        isDrawing.value = false
     }
 
     const addExistingLabel = (label: LabelDetection) => {
