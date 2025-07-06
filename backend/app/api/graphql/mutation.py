@@ -12,6 +12,7 @@ from crud.dataset import (
 )
 from crud.label import (
     delete_label_detections,
+    delete_label_segmentations,
     upsert_label_detections,
     upsert_label_segmentations,
 )
@@ -173,4 +174,25 @@ class Mutation:
             print(e)
             return UpsertLabelError(
                 message="upsert label detections failed", code="INTERNAL_SERVER_ERROR"
+            )
+
+    @strawberry.mutation
+    async def delete_label_segmentations(self, label_id: UUID) -> Annotated[
+        Union[DeleteLabelSuccess, DeleteLabelError],
+        strawberry.union("DeleteLabelResponse"),
+    ]:
+        try:
+            db: AsyncIOMotorDatabase = await anext(get_db())
+            deleted = await delete_label_segmentations(db, label_id)
+            if deleted:
+                return DeleteLabelSuccess(success=True)
+            else:
+                return DeleteLabelError(
+                    message="delete label not found",
+                    code="NOT_FOUND",
+                )
+        except Exception as e:
+            print(e)
+            return DeleteLabelError(
+                message="delete label failed", code="INTERNAL_SERVER_ERROR"
             )

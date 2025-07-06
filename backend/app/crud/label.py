@@ -106,3 +106,9 @@ async def upsert_label_segmentations(
         LabelSegmentation,
         "label_segmentations",
     )
+
+
+async def delete_label_segmentations(db: AsyncIOMotorDatabase, label_id: UUID) -> bool:
+    collection = db["label_segmentations"]
+    res = await collection.delete_one({"id": label_id})
+    return res.deleted_count > 0
