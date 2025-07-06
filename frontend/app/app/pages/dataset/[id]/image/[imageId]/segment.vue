@@ -291,9 +291,7 @@ const handleMouseMove = (e: MouseEvent) => {
 
 // Combined keyboard event handler
 const handleKeyDown = async (e: KeyboardEvent) => {
-    if (drawingMode.value === 'segmentation') {
-        await handleSegKeyDown(e)
-    }
+    await handleSegKeyDown(e)       
 }
 
 
