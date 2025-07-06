@@ -20,7 +20,7 @@ def test_label_crud():
                 height: 0.4
             }])
         {
-                ... on UpsertLabelSuccess {
+                ... on UpsertLabelDetectionSuccess {
                 success
                 labels {
                     imageId
@@ -62,7 +62,7 @@ def test_label_crud():
                 height: 0.999
             }])
         {
-                ... on UpsertLabelSuccess {
+                ... on UpsertLabelDetectionSuccess {
                 success
                 labels {
                     imageId

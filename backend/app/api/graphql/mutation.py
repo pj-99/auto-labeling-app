@@ -3,7 +3,7 @@ from uuid import UUID
 
 import strawberry
 from api.deps import get_db
-from api.graphql.schema import Class, Dataset, Image, LabelDetection
+from api.graphql.schema import Class, Dataset, Image, LabelDetection, LabelSegmentation
 from crud.dataset import (
     create_dataset,
     delete_class,
@@ -24,9 +24,15 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 
 @strawberry.type
-class UpsertLabelSuccess:
+class UpsertLabelDetectionSuccess:
     success: bool = True
     labels: List[LabelDetection]
+
+
+@strawberry.type
+class UpsertLabelSegmentationSuccess:
+    success: bool = True
+    labels: List[LabelSegmentation]
 
 
 @strawberry.type
@@ -102,8 +108,8 @@ class Mutation:
         image_id: UUID,
         label_detections: List[LabelDetectionInputGraphql],
     ) -> Annotated[
-        Union[UpsertLabelSuccess, UpsertLabelError],
-        strawberry.union("UpsertResponse"),
+        Union[UpsertLabelDetectionSuccess, UpsertLabelError],
+        strawberry.union("UpsertDetectionResponse"),
     ]:
         try:
             db: AsyncIOMotorDatabase = await anext(get_db())
@@ -113,7 +119,7 @@ class Mutation:
             result = await upsert_label_detections(
                 db, dataset_id, image_id, label_detections=model_label_detections
             )
-            return UpsertLabelSuccess(labels=result)
+            return UpsertLabelDetectionSuccess(labels=result)
         except Exception as e:
             print(e)
             # This can be enhanced
@@ -149,8 +155,8 @@ class Mutation:
         image_id: UUID,
         label_segmentations: List[LabelSegmentationInputGraphql],
     ) -> Annotated[
-        Union[UpsertLabelSuccess, UpsertLabelError],
-        strawberry.union("UpsertResponse"),
+        Union[UpsertLabelSegmentationSuccess, UpsertLabelError],
+        strawberry.union("UpsertSegmentationResponse"),
     ]:
         try:
             db: AsyncIOMotorDatabase = await anext(get_db())
@@ -161,7 +167,7 @@ class Mutation:
             result = await upsert_label_segmentations(
                 db, dataset_id, image_id, label_segmentations=labels
             )
-            return UpsertLabelSuccess(labels=result)
+            return UpsertLabelSegmentationSuccess(labels=result)
         except Exception as e:
             # This can be enhanced
             print(e)
