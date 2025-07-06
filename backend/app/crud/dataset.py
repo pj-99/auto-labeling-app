@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 import bson
 from api.deps import settings
-from models.dataset import Dataset
+from models.dataset import Dataset, TrainingType
 from models.image import Image
 from models.object_class import Class
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -62,7 +62,9 @@ async def insert_image_to_dataset(
         raise e
 
 
-async def create_dataset(db: AsyncIOMotorDatabase, user_id: UUID, name: str) -> Dataset:
+async def create_dataset(
+    db: AsyncIOMotorDatabase, user_id: UUID, name: str, training_type: TrainingType
+) -> Dataset:
     if not validate_user(user_id):
         raise ValueError("User not found")
 
@@ -75,10 +77,11 @@ async def create_dataset(db: AsyncIOMotorDatabase, user_id: UUID, name: str) -> 
         "id": dataset_id_binary,
         "user_id": user_id_binary,
         "name": name,
-        "created_at": datetime.now(),
-        "updated_at": datetime.now(),
+        "training_type": training_type.value,
         "images": [],
         "classes": [],
+        "updated_at": datetime.now(),
+        "created_at": datetime.now(),
     }
     await collection.insert_one(doc)
     return Dataset(
@@ -89,6 +92,7 @@ async def create_dataset(db: AsyncIOMotorDatabase, user_id: UUID, name: str) -> 
         updated_at=doc["updated_at"],
         images=[],
         classes=[],
+        training_type=TrainingType(doc["training_type"]),
     )
 
 
@@ -126,6 +130,11 @@ async def get_datasets_by_user_id(
                 created_at=doc["created_at"],
                 updated_at=doc["updated_at"],
                 images=images,
+                training_type=(
+                    TrainingType(doc["training_type"])
+                    if "training_type" in doc
+                    else TrainingType.DETECT
+                ),
             )
         )
 

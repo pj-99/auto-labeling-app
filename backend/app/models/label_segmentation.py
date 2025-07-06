@@ -1,11 +1,27 @@
-from typing import List
+from datetime import datetime
+from typing import List, Tuple
 from uuid import UUID
 
-from pydantic import BaseModel
+from models.label import LabelBase
 
 
-class LabelSegmentation(BaseModel):
+class LabelSegmentationBase(LabelBase):
+    """
+    The core data of segmentation
+    """
+
+    mask: List[float]
+
+
+# This define two time
+# Maybe it can be improved but need to check strawberry docs
+class LabelSegmentationInput(LabelSegmentationBase):
+    id: UUID | None = None
+
+
+class LabelSegmentation(LabelSegmentationBase):
+    id: UUID | None = None
     dataset_id: UUID
     image_id: UUID
-    class_id: int
-    segmentation: List[float]
+    created_at: datetime | None = None
+    updated_at: datetime | None = None

@@ -8,49 +8,7 @@
 
     <!-- Create Dataset Section -->
     <div class="mb-8">
-      <UModal v-model:open="openModal">
-        <UButton label="Create Dataset" color="secondary" variant="subtle" />
-        <template #content>
-          <UCard>
-            <template #header>
-              <div class="flex items-center justify-between">
-                <h2 class="text-lg font-medium">Create New Dataset</h2>
-              </div>
-            </template>
-
-            <div class="flex gap-4 items-center">
-              <UInput
-                v-model="datasetName"
-                placeholder="Enter dataset name"
-                size="md"
-                class="flex-1"
-              />
-              <UButton
-                color="primary"
-                size="md"
-                :loading="isCreating"
-                :disabled="!datasetName"
-                @click="createDataset"
-              >
-                Create
-              </UButton>
-            </div>
-
-            <!-- Success Message -->
-            <UAlert
-              v-if="showSuccess"
-              color="green"
-              variant="soft"
-              title="Success!"
-              class="mt-4"
-            >
-              <template #description>
-                Dataset created successfully
-              </template>
-            </UAlert>
-          </UCard>
-        </template>
-      </UModal>
+      <CreateDatasetModal @refresh="refresh" />
     </div>
 
     <!-- Datasets List Section -->
@@ -68,11 +26,15 @@
           <NuxtLink :to="`/dataset/${dataset.id}`" class="block">
             <div class="flex items-start justify-between">
               <div>
-                <h3 class="text-lg font-medium">{{ dataset.name }}</h3>
-                <p class="text-sm text-gray-500 mt-1">Updated at{{ formatDate(dataset.createdAt) }}</p>
+                <div class="flex items-baseline gap-2 mb-2">
+                  <h2 class="text-lg font-medium">{{ dataset.name }}</h2>
+                  <DatasetBadge :training-type="dataset.trainingType" />
+                </div>
+
+                <p class="text-sm text-gray-500 mt-1">Updated {{ formatDate(dataset.createdAt) }}</p>
               </div>
               <UDropdownMenu :items="datasetActions(dataset.id)" @click.stop>
-                <UButton color="gray" variant="ghost" icon="i-heroicons-ellipsis-horizontal-20-solid" />
+                <UButton color="neutral" variant="ghost" icon="i-heroicons-ellipsis-horizontal-20-solid" />
               </UDropdownMenu>
             </div>
             <div class="mt-4">
@@ -91,16 +53,20 @@
 </template>
 
 <script setup lang="ts">
-
-import { ref, computed } from 'vue'
-import { useQuery, useMutation } from '@vue/apollo-composable'
+import { computed } from 'vue'
+import { useQuery } from '@vue/apollo-composable'
 import { gql } from 'graphql-tag'
-import { UDropdownMenu } from '#components'
-const openModal = ref(false)
+// import CreateDatasetModal from '@/components/dataset/CreateDatasetModal.vue'
 
 definePageMeta({
   layout: 'default'
 })
+
+// TODO: this define twice, can be improved
+enum DatasetTrainingType {
+    DETECT = 'DETECT',
+    SEGMENT = 'SEGMENT'
+}
 
 interface Dataset {
   id: string
@@ -108,27 +74,16 @@ interface Dataset {
   createdAt: string
   updatedAt: string
   createdBy: string
-  images: any[]
+  images: Image[]
+  trainingType: DatasetTrainingType
+}
+
+interface Image {
+  id: string
 }
 
 interface DatasetsQueryResult {
   datasets: Dataset[]
-}
-
-const datasetName = ref('')
-const isCreating = ref(false)
-const showSuccess = ref(false)
-
-const toast = useToast()
-
-function showSuccessToast() {
-  toast.add({
-    description: 'Your action was completed successfully.',
-    color: 'primary',
-    progress: false,
-    duration: 5000,
-    close: false,
-  })
 }
 
 
@@ -141,21 +96,7 @@ const DATASETS_QUERY = gql`
       createdAt
       updatedAt
       createdBy
-      images {
-        id
-      }
-    }
-  }
-`
-
-const CREATE_DATASET_MUTATION = gql`
-  mutation CreateDataset($userId: UUID!, $name: String!) {
-    createDataset(userId: $userId, name: $name) {
-      id
-      name
-      createdAt
-      updatedAt
-      createdBy
+      trainingType
       images {
         id
       }
@@ -173,37 +114,6 @@ const { result: datasetsData, loading: datasetsLoading, refetch: refresh } = use
 const datasets = computed(() => {
   return datasetsData.value?.datasets || []
 })
-
-const { mutate: createDatasetMutation, loading: createLoading } = useMutation(CREATE_DATASET_MUTATION)
-
-const createDataset = async () => {
-  console.log('createDataset')
-  if (!datasetName.value) return
-  console.log('datasetName', datasetName.value)
-  isCreating.value = true
-  
-  try {
-    await createDatasetMutation({
-      userId,
-      name: datasetName.value
-    })
-    
-    // Reset form and show success
-    datasetName.value = ''
-    showSuccess.value = true
-    setTimeout(() => {
-      showSuccess.value = false
-    }, 3000)
-    openModal.value = false
-    showSuccessToast()
-    // Refetch datasets
-    await refresh()
-  } catch (error) {
-    console.error('Error creating dataset:', error)
-  } finally {
-    isCreating.value = false
-  }
-}
 
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleString()

@@ -1,24 +1,39 @@
-from typing import Annotated, List, Union
+from typing import Annotated, List, Tuple, Union
 from uuid import UUID
 
 import strawberry
 from api.deps import get_db
-from api.graphql.schema import Class, Dataset, Image, LabelDetection
+from api.graphql.schema import Class, Dataset, Image, LabelDetection, LabelSegmentation
 from crud.dataset import (
     create_dataset,
     delete_class,
     insert_class,
     insert_image_to_dataset,
 )
-from crud.label import delete_label_detections, upsert_label_detections
+from crud.label import (
+    delete_label_detections,
+    delete_label_segmentations,
+    upsert_label_detections,
+    upsert_label_segmentations,
+)
+from models.dataset import TrainingType
 from models.label_detection import LabelDetectionInput as LabelDetectionInputModel
+from models.label_segmentation import (
+    LabelSegmentationInput as LabelSegmentationInputModel,
+)
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 
 @strawberry.type
-class UpsertLabelSuccess:
+class UpsertLabelDetectionSuccess:
     success: bool = True
     labels: List[LabelDetection]
+
+
+@strawberry.type
+class UpsertLabelSegmentationSuccess:
+    success: bool = True
+    labels: List[LabelSegmentation]
 
 
 @strawberry.type
@@ -42,9 +57,11 @@ class DeleteLabelError:
 class Mutation:
 
     @strawberry.mutation
-    async def create_dataset(self, user_id: UUID, name: str) -> Dataset:
+    async def create_dataset(
+        self, user_id: UUID, name: str, training_type: TrainingType
+    ) -> Dataset:
         db: AsyncIOMotorDatabase = await anext(get_db())
-        return await create_dataset(db, user_id, name)
+        return await create_dataset(db, user_id, name, training_type)
 
     @strawberry.mutation
     async def insert_image_to_dataset(
@@ -79,6 +96,12 @@ class Mutation:
         width: float
         height: float
 
+    @strawberry.input
+    class LabelSegmentationInputGraphql:
+        id: UUID | None = None
+        class_id: int
+        mask: List[float]
+
     @strawberry.mutation
     async def upsert_label_detections(
         self,
@@ -86,10 +109,9 @@ class Mutation:
         image_id: UUID,
         label_detections: List[LabelDetectionInputGraphql],
     ) -> Annotated[
-        Union[UpsertLabelSuccess, UpsertLabelError],
-        strawberry.union("UpsertResponse"),
+        Union[UpsertLabelDetectionSuccess, UpsertLabelError],
+        strawberry.union("UpsertDetectionResponse"),
     ]:
-
         try:
             db: AsyncIOMotorDatabase = await anext(get_db())
             model_label_detections = [
@@ -98,8 +120,9 @@ class Mutation:
             result = await upsert_label_detections(
                 db, dataset_id, image_id, label_detections=model_label_detections
             )
-            return UpsertLabelSuccess(labels=result)
-        except Exception:
+            return UpsertLabelDetectionSuccess(labels=result)
+        except Exception as e:
+            print(e)
             # This can be enhanced
             return UpsertLabelError(
                 message="upsert label detections failed", code="INTERNAL_SERVER_ERROR"
@@ -120,7 +143,56 @@ class Mutation:
                     message="delete label not found",
                     code="NOT_FOUND",
                 )
-        except Exception:
+        except Exception as e:
+            print(e)
+            return DeleteLabelError(
+                message="delete label failed", code="INTERNAL_SERVER_ERROR"
+            )
+
+    @strawberry.mutation
+    async def upsert_label_segmentations(
+        self,
+        dataset_id: UUID,
+        image_id: UUID,
+        label_segmentations: List[LabelSegmentationInputGraphql],
+    ) -> Annotated[
+        Union[UpsertLabelSegmentationSuccess, UpsertLabelError],
+        strawberry.union("UpsertSegmentationResponse"),
+    ]:
+        try:
+            db: AsyncIOMotorDatabase = await anext(get_db())
+            labels = [
+                LabelSegmentationInputModel(**label.__dict__)
+                for label in label_segmentations
+            ]
+            result = await upsert_label_segmentations(
+                db, dataset_id, image_id, label_segmentations=labels
+            )
+            return UpsertLabelSegmentationSuccess(labels=result)
+        except Exception as e:
+            # This can be enhanced
+            print(e)
+            return UpsertLabelError(
+                message="upsert label detections failed", code="INTERNAL_SERVER_ERROR"
+            )
+
+    @strawberry.mutation
+    async def delete_label_segmentations(self, label_id: UUID) -> Annotated[
+        Union[DeleteLabelSuccess, DeleteLabelError],
+        strawberry.union("DeleteLabelResponse"),
+    ]:
+        try:
+            db: AsyncIOMotorDatabase = await anext(get_db())
+            deleted = await delete_label_segmentations(db, label_id)
+            if deleted:
+                return DeleteLabelSuccess(success=True)
+            else:
+                return DeleteLabelError(
+                    message="delete label not found",
+                    code="NOT_FOUND",
+                )
+        except Exception as e:
+            print(e)
             return DeleteLabelError(
                 message="delete label failed", code="INTERNAL_SERVER_ERROR"
             )

@@ -7,20 +7,22 @@
                 <UButton icon="i-heroicons-sparkles" color="neutral">
                     Auto Labeling
                 </UButton>
-                <UButton 
-                    icon="i-heroicons-pencil-square" 
-                    :disabled="!selectedClass"
-                    :color="isDrawingMode ? 'primary' : 'neutral'"
-                    @click="toggleDrawingMode(!isDrawingMode)"
-                >
-                    {{ isDrawingMode ? 'Exit Drawing Mode' : 'Draw A Box' }}
-                    <template #trailing>
-                        <span v-if="!selectedClass" class="text-xs text-gray-500">(Select a class first)</span>
-                        <span v-else class="text-xs">
-                            {{ classItems.find((c: ClassItem) => c.value === selectedClass)?.label }}
-                        </span>
-                    </template>
-                </UButton>
+                <div class="flex flex-col gap-2">
+                    <UButton 
+                        icon="i-heroicons-pencil-square" 
+                        :disabled="!selectedClass"
+                        :color="drawingMode === 'segmentation' ? 'primary' : 'neutral'"
+                        @click="toggleDrawingMode(drawingMode === 'segmentation' ? 'none' : 'segmentation')"
+                    >
+                        {{ drawingMode === 'segmentation' ? 'Exit Polygon Mode' : 'Draw Polygon' }}
+                        <template #trailing>
+                            <span v-if="!selectedClass" class="text-xs text-gray-500">(Select a class first)</span>
+                            <span v-else class="text-xs">
+                                {{ classItems.find((c: ClassItem) => c.value === selectedClass)?.label }}
+                            </span>
+                        </template>
+                    </UButton>
+                </div>
 
                 <UButton
                     icon="i-heroicons-check-circle"
@@ -76,11 +78,11 @@
                 <div class="flex flex-col gap-2">
                     <h2 class="text-lg font-medium mb-2">Label List</h2>
                     <div class="space-y-2 max-h-[calc(100vh-36rem)] overflow-y-auto">
-                        <div v-if="labels.length === 0" class="text-gray-500 text-sm">
+                        <div v-if="segmentations.length === 0" class="text-gray-500 text-sm">
                             No labels yet
                         </div>
                         <div
-                            v-for="label in labels" :key="label.id" 
+                            v-for="label in segmentations" :key="label.id" 
                             class="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100">
                             <div class="flex items-center gap-2">
                                 <div 
@@ -108,7 +110,7 @@
                     class="relative flex-1 border-2 border-gray-300 rounded-lg bg-gray-50 flex items-center justify-center overflow-hidden"
                     @mousedown="handleMouseDown"
                     @mousemove="handleMouseMove"
-                    @mouseup="handleMouseUp">
+                    >
                     <canvas ref="canvasEl" class="absolute inset-0" />
                     <div v-if="!image" class="text-gray-400 flex flex-col items-center gap-2">
                         <UIcon name="i-heroicons-photo" class="w-16 h-16" />
@@ -132,10 +134,9 @@ import { useRoute } from 'vue-router'
 import { useQuery, useMutation } from '@vue/apollo-composable'
 import { gql } from 'graphql-tag'
 import { Canvas as FabricCanvas, FabricImage } from 'fabric'
-import { decodeBase64ToUuid } from '../../../../utils/tool'
-import { useLabel   } from '../../../../composables/useLabel'
-import type {LabelDetection, CustomRect} from '../../../../composables/useLabel';
-import chroma from 'chroma-js'
+import { useLabelSeg } from '../../../../../composables/useLabelSeg'
+import type { LabelSegmentation, CustomPolygon } from '../../../../../composables/useLabelSeg'
+import type { Ref } from 'vue';
 
 interface Class {
     id: string;
@@ -149,14 +150,6 @@ interface ClassItem {
     label: string;
 }
 
-const colors = computed(() => chroma.scale('Spectral').mode('lab').colors(10))
-
-// Get a consistent color for a class ID
-const getClassColor = (classId: string | number | null | undefined) => {
-    if (classId == null) return colors.value[colors.value.length - 1] // Default to first color if no class ID
-    return colors.value[Number(classId) % colors.value.length]   
-}
-
 const route = useRoute()
 
 const imageIdBase64 = route.params.imageId
@@ -165,7 +158,7 @@ const datasetId = decodeBase64ToUuid(route.params.id as string)
 
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 const fabricCanvas = ref<FabricCanvas | null>(null)
-const isDrawingMode = ref(false)
+const drawingMode = ref<'none' | 'box' | 'segmentation'>('none')
 const isSaving = ref(false)
 const selectedClass = ref<string | null>(null)
 const newClassName = ref('')
@@ -188,15 +181,12 @@ const IMAGE_QUERY = gql`
   }
 `
 
-const LABEL_DETECTIONS_QUERY = gql`
-  query GetLabelDetections($datasetId: UUID!, $imageId: UUID!) {
-    labelDetections(datasetId: $datasetId, imageId: $imageId) {
+const LABEL_SEGMENTATIONS_QUERY = gql`
+  query GetLabelSegmentations($datasetId: UUID!, $imageId: UUID!) {
+    labelSegmentations(datasetId: $datasetId, imageId: $imageId) {
       id
       classId
-      xCenter
-      yCenter
-      width
-      height
+      mask
     }
   }
 `
@@ -228,7 +218,7 @@ const { result: imageData } = useQuery(IMAGE_QUERY, {
     imageId
 })
 
-const { result: labelData, refetch: refetchLabels } = useQuery(LABEL_DETECTIONS_QUERY, {
+const { result: segmentationData, refetch: refetchSegmentations } = useQuery(LABEL_SEGMENTATIONS_QUERY, {
     datasetId,
     imageId
 })
@@ -240,7 +230,7 @@ const { result: classesData, refetch: refetchClasses } = useQuery(CLASSES_QUERY,
 const { mutate: insertClass } = useMutation(INSERT_CLASS_MUTATION)
 
 const image = computed(() => imageData.value?.image)
-const labels = computed(() => labelData.value?.labelDetections || [])
+const segmentations = computed(() => segmentationData.value?.labelSegmentations || [])
 const classes = computed(() => classesData.value?.classes || [] as Class[])
 
 // Format classes for USelect
@@ -258,41 +248,54 @@ const classIdToName = computed(() => {
     return map
 })
 
-const {
-    startDrawing,
-    continueDrawing,
-    finishDrawing,
-    addExistingLabel,
-    handleModification,
-    handleDeletion,
-    isDrawing
-} = useLabel(fabricCanvas, datasetId, imageId, refetchLabels, selectedClass, getClassColor)
 
-const toggleDrawingMode = (state: boolean) => {
-    isDrawingMode.value = state
-    if (!fabricCanvas.value) return
 
-    fabricCanvas.value!.selection = !state
+const wrappedRefetchSegmentations = async () => {
+    await refetchSegmentations()
 }
 
+
+const {
+    startDrawing: startSegDrawing,
+    continueDrawing: continueSegDrawing,
+    finishDrawing: _finishSegDrawing, // Prefix with _ to indicate it's intentionally unused
+    addExistingLabel: addExistingSegmentation,
+    handleModification: handleSegModification,
+    handleDeletion: handleSegDeletion,
+    handleKeyDown: handleSegKeyDown,
+    isDrawing: isSegDrawing,
+} = useLabelSeg(fabricCanvas as Ref<FabricCanvas | null>, datasetId, imageId, wrappedRefetchSegmentations, selectedClass, getClassColor)
+
+// Update drawing mode toggle
+const toggleDrawingMode = (mode: 'none' | 'box' | 'segmentation') => {
+    drawingMode.value = mode
+    if (!fabricCanvas.value) return
+
+    // Disable selection when in drawing mode
+    fabricCanvas.value.selection = mode === 'none'
+}
+
+// Combined mouse event handlers
 const handleMouseDown = (e: MouseEvent) => {
-    if (isDrawingMode.value) {
-        startDrawing(e)
+    if (drawingMode.value === 'segmentation') {
+        startSegDrawing(e)
     }
 }
 
 const handleMouseMove = (e: MouseEvent) => {
-    if (isDrawingMode.value && isDrawing.value) {
-        continueDrawing(e)
+    if (drawingMode.value === 'segmentation' && isSegDrawing.value) {
+        continueSegDrawing(e)
     }
 }
 
-const handleMouseUp = () => {
-    if (isDrawingMode.value && isDrawing.value) {
-        finishDrawing()
-    }
+
+// Combined keyboard event handler
+const handleKeyDown = async (e: KeyboardEvent) => {
+    await handleSegKeyDown(e)       
 }
 
+
+// Initialize canvas with both types of labels
 const initCanvas = async () => {
     if (!image.value || !canvasEl.value) return
 
@@ -333,12 +336,13 @@ const initCanvas = async () => {
         height: canvasHeight,
         uniformScaling: false,
     })
+    
 
     // Scale image to fit the canvas (now they have the same aspect ratio)
     img.scaleToWidth(canvasWidth)
     
     // Add image to canvas
-    fabricCanvas.value.add(img)
+    fabricCanvas.value.add(markRaw(img))
     // Centering
     img.set({
         left: fabricCanvas.value.width! / 2,
@@ -349,28 +353,17 @@ const initCanvas = async () => {
         evented: false
     })
 
-    // Add existing labels
-    labels.value.forEach((label: LabelDetection) => {
-        addExistingLabel(label)
-    })
 
-    // Handle object modifications
-    fabricCanvas.value.on('object:modified', async (e) => {
-        const rect = e.target as CustomRect;
-        if (!rect) return;
-        await handleModification(rect)
-    })
-
-    fabricCanvas.value.on('object:removed', async (e) => {
-        const rect = e.target as CustomRect;
-        if (!rect) return;
-        await handleDeletion(rect)
+    console.log("labels segmentations", segmentations.value)
+    // Add existing segmentation labels
+    segmentations.value.forEach((label: LabelSegmentation) => {
+        console.log("segementation Label mask", label.mask)
+        addExistingSegmentation(label)
     })
 
     fabricCanvas.value.on('object:moving', (e) => {
-        const obj = e.target as CustomRect;
-        if (!obj) return;
-
+        console.log("object:moving", e)
+        const obj = e.target as CustomPolygon;
         // Bounded in canvas
         if (obj.left! < 0) {
             obj.left = 0;
@@ -385,6 +378,15 @@ const initCanvas = async () => {
         }
     })
 
+    // Handle object modifications
+    fabricCanvas.value.on('object:modified', async (e) => {
+        const obj = e.target
+        if (!obj || !('data' in obj)) return
+
+        console.log("object:modified seg", obj)
+        await handleSegModification(obj as CustomPolygon)
+    })
+
     fabricCanvas.value.renderAll()
 }
 
@@ -393,47 +395,32 @@ const deleteSelectedLabel = async (label: LabelDetection) => {
     if (!fabricCanvas.value) return
 
     // Find the corresponding rectangle on canvas
-    const objects = fabricCanvas.value.getObjects('rect')
-    const rect = objects.find(obj => {
-        const customRect = obj as CustomRect
-        return customRect.data?.labelId === label.id
-    }) as CustomRect | undefined
+    const objects = fabricCanvas.value.getObjects('polygon')
+    const target = objects.find(obj => {
+        const customPolygon = obj as CustomPolygon
+        return customPolygon.data?.labelId === label.id
+    }) as CustomPolygon | undefined
 
-    if (rect) {
-        await handleDeletion(rect)
-        fabricCanvas.value.remove(rect)
-        fabricCanvas.value.renderAll()
+    if (target) {
+        await handleSegDeletion(target)
     }
 }
 
-// Wrap the original handleKeyDown to add refetch
-const handleKeyDown = async (e: KeyboardEvent) => {
-    if (!fabricCanvas.value) return
 
-    // Handle backspace or delete key
-    if (e.key === 'Backspace' || e.key === 'Delete') {
-        const activeObject = fabricCanvas.value.getActiveObject()
-        if (activeObject && 'data' in activeObject) {
-            const rect = activeObject as CustomRect
-            await handleDeletion(rect)
-            fabricCanvas.value.remove(rect)
-            fabricCanvas.value.renderAll()
-        }
-    }
-}
-
+// TODO: this function can be rewrite
+// Use variable to keep track of the current modification
 const saveCurrentModifications = async () => {
     if (!fabricCanvas.value) return
     
     isSaving.value = true
     try {
         // Get all rectangle objects from canvas
-        const objects = fabricCanvas.value.getObjects('rect')
+        const objects = fabricCanvas.value.getObjects('polygon')
         // Update each rectangle
         for (const obj of objects) {
-            const rect = obj as CustomRect
-            if (rect) {
-                await handleModification(rect)
+            const polygon = obj as CustomPolygon
+            if (polygon) {
+                await handleSegModification(polygon)
             }
         }
     } finally {
@@ -469,13 +456,13 @@ onMounted(async () => {
     }
 })
 
-// Watch for image changes
-watch(() => image.value?.imageUrl, async (newUrl, oldUrl) => {
-    if (newUrl && newUrl !== oldUrl) {
-        await nextTick()
-        initCanvas()
-    }
-}, { immediate: true })
+// // Watch for image changes
+// watch(() => image.value?.imageUrl, async (newUrl, oldUrl) => {
+//     if (newUrl && newUrl !== oldUrl) {
+//         await nextTick()
+//         initCanvas()
+//     }
+// }, { immediate: true })
 
 
 // Cleanup function
@@ -486,4 +473,22 @@ onUnmounted(() => {
         fabricCanvas.value = null
     }
 })
+
+
+
+// Watch for image changes
+watch(() => image.value?.imageUrl, async (newUrl, oldUrl) => {
+    if (newUrl && newUrl !== oldUrl) {
+        // dispose the canvas
+        if (fabricCanvas.value) {
+            fabricCanvas.value.dispose()
+            fabricCanvas.value = null
+        }
+
+        initCanvas()
+    }
+}, { immediate: true })
+
+
+
 </script>
