@@ -13,8 +13,8 @@ export interface LabelDetection {
     height: number
 }
 
-interface UpsertLabelSuccess {
-    __typename: 'UpsertLabelSuccess'
+interface UpsertLabelDetectionSuccess {
+    __typename: 'UpsertLabelDetectionSuccess'
     labels: Array<{
         id: string
         classId: string
@@ -32,7 +32,7 @@ interface UpsertLabelError {
 }
 
 type UpsertLabelResult = {
-    upsertLabelDetections: UpsertLabelSuccess | UpsertLabelError
+    upsertLabelDetections: UpsertLabelDetectionSuccess | UpsertLabelError
 }
 
 export interface CustomRect extends Rect {
@@ -53,7 +53,7 @@ const UPSERT_LABELS_MUTATION = gql`
       imageId: $imageId
       labelDetections: $labelDetections
     ) {
-      ... on UpsertLabelSuccess {
+      ... on UpsertLabelDetectionSuccess {
         labels {
           id
           classId
@@ -182,7 +182,7 @@ export const useLabel = (
                 labelDetections: [labelDetection]
             }) as { data: UpsertLabelResult }
 
-            if (data?.upsertLabelDetections.__typename === 'UpsertLabelSuccess') {
+            if (data?.upsertLabelDetections.__typename === 'UpsertLabelDetectionSuccess') {
                 const labels = data.upsertLabelDetections.labels
                 if (labels && labels.length > 0) {
                     const newLabel = labels[0]

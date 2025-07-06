@@ -7,20 +7,22 @@
                 <UButton icon="i-heroicons-sparkles" color="neutral">
                     Auto Labeling
                 </UButton>
-                <UButton 
-                    icon="i-heroicons-pencil-square" 
-                    :disabled="!selectedClass"
-                    :color="isDrawingMode ? 'primary' : 'neutral'"
-                    @click="toggleDrawingMode(!isDrawingMode)"
-                >
-                    {{ isDrawingMode ? 'Exit Drawing Mode' : 'Draw A Box' }}
-                    <template #trailing>
-                        <span v-if="!selectedClass" class="text-xs text-gray-500">(Select a class first)</span>
-                        <span v-else class="text-xs">
-                            {{ classItems.find((c: ClassItem) => c.value === selectedClass)?.label }}
-                        </span>
-                    </template>
-                </UButton>
+                <div class="flex flex-col gap-2">
+                    <UButton 
+                        icon="i-heroicons-square-2-stack" 
+                        :disabled="!selectedClass"
+                        :color="drawingMode === 'box' ? 'primary' : 'neutral'"
+                        @click="toggleDrawingMode(drawingMode === 'box' ? 'none' : 'box')"
+                    >
+                        {{ drawingMode === 'box' ? 'Exit Box Mode' : 'Draw Box' }}
+                        <template #trailing>
+                            <span v-if="!selectedClass" class="text-xs text-gray-500">(Select a class first)</span>
+                            <span v-else class="text-xs">
+                                {{ classItems.find((c: ClassItem) => c.value === selectedClass)?.label }}
+                            </span>
+                        </template>
+                    </UButton>
+                </div>
 
                 <UButton
                     icon="i-heroicons-check-circle"
@@ -132,10 +134,9 @@ import { useRoute } from 'vue-router'
 import { useQuery, useMutation } from '@vue/apollo-composable'
 import { gql } from 'graphql-tag'
 import { Canvas as FabricCanvas, FabricImage } from 'fabric'
-import { decodeBase64ToUuid } from '../../../../utils/tool'
-import { useLabel   } from '../../../../composables/useLabel'
-import type {LabelDetection, CustomRect} from '../../../../composables/useLabel';
-import chroma from 'chroma-js'
+import { useLabel } from '../../../../../composables/useLabel'
+import type { LabelDetection, CustomRect } from '../../../../../composables/useLabel'
+import type { Ref } from 'vue';
 
 interface Class {
     id: string;
@@ -149,13 +150,6 @@ interface ClassItem {
     label: string;
 }
 
-const colors = computed(() => chroma.scale('Spectral').mode('lab').colors(10))
-
-// Get a consistent color for a class ID
-const getClassColor = (classId: string | number | null | undefined) => {
-    if (classId == null) return colors.value[colors.value.length - 1] // Default to first color if no class ID
-    return colors.value[Number(classId) % colors.value.length]   
-}
 
 const route = useRoute()
 
@@ -165,7 +159,7 @@ const datasetId = decodeBase64ToUuid(route.params.id as string)
 
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 const fabricCanvas = ref<FabricCanvas | null>(null)
-const isDrawingMode = ref(false)
+const drawingMode = ref<'none' | 'box' | 'segmentation'>('none')
 const isSaving = ref(false)
 const selectedClass = ref<string | null>(null)
 const newClassName = ref('')
@@ -197,6 +191,16 @@ const LABEL_DETECTIONS_QUERY = gql`
       yCenter
       width
       height
+    }
+  }
+`
+
+const LABEL_SEGMENTATIONS_QUERY = gql`
+  query GetLabelSegmentations($datasetId: UUID!, $imageId: UUID!) {
+    labelSegmentations(datasetId: $datasetId, imageId: $imageId) {
+      id
+      classId
+      mask
     }
   }
 `
@@ -233,6 +237,11 @@ const { result: labelData, refetch: refetchLabels } = useQuery(LABEL_DETECTIONS_
     imageId
 })
 
+const { result: segmentationData, refetch: refetchSegmentations } = useQuery(LABEL_SEGMENTATIONS_QUERY, {
+    datasetId,
+    imageId
+})
+
 const { result: classesData, refetch: refetchClasses } = useQuery(CLASSES_QUERY, {
     datasetId
 })
@@ -258,41 +267,67 @@ const classIdToName = computed(() => {
     return map
 })
 
-const {
-    startDrawing,
-    continueDrawing,
-    finishDrawing,
-    addExistingLabel,
-    handleModification,
-    handleDeletion,
-    isDrawing
-} = useLabel(fabricCanvas, datasetId, imageId, refetchLabels, selectedClass, getClassColor)
-
-const toggleDrawingMode = (state: boolean) => {
-    isDrawingMode.value = state
-    if (!fabricCanvas.value) return
-
-    fabricCanvas.value!.selection = !state
+// Wrap refetch functions to ensure they return Promise<void>
+const wrappedRefetchLabels = async () => {
+    await refetchLabels()
 }
 
+// Initialize both labeling composables
+const {
+    startDrawing: startBoxDrawing,
+    continueDrawing: continueBoxDrawing,
+    finishDrawing: finishBoxDrawing,
+    addExistingLabel: addExistingBox,
+    handleModification: handleBoxModification,
+    handleDeletion: handleBoxDeletion,
+    isDrawing: isBoxDrawing,
+} = useLabel(fabricCanvas as Ref<FabricCanvas | null>, datasetId, imageId, wrappedRefetchLabels, selectedClass, getClassColor)
+
+// Update drawing mode toggle
+const toggleDrawingMode = (mode: 'none' | 'box' | 'segmentation') => {
+    drawingMode.value = mode
+    if (!fabricCanvas.value) return
+
+    // Disable selection when in drawing mode
+    fabricCanvas.value.selection = mode === 'none'
+}
+
+// Combined mouse event handlers
 const handleMouseDown = (e: MouseEvent) => {
-    if (isDrawingMode.value) {
-        startDrawing(e)
-    }
+    if (drawingMode.value === 'box') {
+        startBoxDrawing(e)
+    } 
 }
 
 const handleMouseMove = (e: MouseEvent) => {
-    if (isDrawingMode.value && isDrawing.value) {
-        continueDrawing(e)
+    if (drawingMode.value === 'box' && isBoxDrawing.value) {
+        continueBoxDrawing(e)
     }
 }
 
-const handleMouseUp = () => {
-    if (isDrawingMode.value && isDrawing.value) {
-        finishDrawing()
+const handleMouseUp = async () => {
+    if (drawingMode.value === 'box' && isBoxDrawing.value) {
+        await finishBoxDrawing()
     }
 }
 
+// Combined keyboard event handler
+const handleKeyDown = async (e: KeyboardEvent) => {
+    if (drawingMode.value === 'box') {
+        if (e.key === 'Backspace' || e.key === 'Delete') {
+            if (!fabricCanvas.value) return
+            const activeObject = fabricCanvas.value.getActiveObject()
+            if (activeObject && 'data' in activeObject) {
+                const rect = activeObject as CustomRect
+                await handleBoxDeletion(rect)
+                fabricCanvas.value.remove(rect)
+                fabricCanvas.value.renderAll()
+            }
+        }
+    }
+}
+
+// Initialize canvas with both types of labels
 const initCanvas = async () => {
     if (!image.value || !canvasEl.value) return
 
@@ -333,6 +368,7 @@ const initCanvas = async () => {
         height: canvasHeight,
         uniformScaling: false,
     })
+    
 
     // Scale image to fit the canvas (now they have the same aspect ratio)
     img.scaleToWidth(canvasWidth)
@@ -349,28 +385,20 @@ const initCanvas = async () => {
         evented: false
     })
 
-    // Add existing labels
+    // Add existing bounding box labels
     labels.value.forEach((label: LabelDetection) => {
-        addExistingLabel(label)
+        addExistingBox(label)
     })
 
-    // Handle object modifications
-    fabricCanvas.value.on('object:modified', async (e) => {
-        const rect = e.target as CustomRect;
-        if (!rect) return;
-        await handleModification(rect)
-    })
-
-    fabricCanvas.value.on('object:removed', async (e) => {
-        const rect = e.target as CustomRect;
-        if (!rect) return;
-        await handleDeletion(rect)
-    })
+    console.log("labelsdetections", labels.value)
 
     fabricCanvas.value.on('object:moving', (e) => {
-        const obj = e.target as CustomRect;
-        if (!obj) return;
+        if (drawingMode.value != 'box') {
+            return
+        }
 
+        console.log("object:moving", e)
+        const obj = e.target as CustomRect;
         // Bounded in canvas
         if (obj.left! < 0) {
             obj.left = 0;
@@ -383,6 +411,28 @@ const initCanvas = async () => {
         } else if (obj.top! + obj.height! > fabricCanvas.value!.height!) {
             obj.top = fabricCanvas.value!.height! - obj.height!;
         }
+    })
+
+    // Handle object modifications
+    fabricCanvas.value.on('object:modified', async (e) => {
+        const obj = e.target
+        if (!obj || !('data' in obj)) return
+
+        if ('width' in obj) {
+            // It's a bounding box
+            console.log("object:modified bbox", obj)
+            await handleBoxModification(obj as CustomRect)
+        } 
+    })
+
+    fabricCanvas.value.on('object:removed', async (e) => {
+        const obj = e.target
+        if (!obj || !('data' in obj)) return
+
+        if ('width' in obj) {
+            // It's a bounding box
+            await handleBoxDeletion(obj as CustomRect)
+        } 
     })
 
     fabricCanvas.value.renderAll()
@@ -400,25 +450,9 @@ const deleteSelectedLabel = async (label: LabelDetection) => {
     }) as CustomRect | undefined
 
     if (rect) {
-        await handleDeletion(rect)
+        await handleBoxDeletion(rect)
         fabricCanvas.value.remove(rect)
         fabricCanvas.value.renderAll()
-    }
-}
-
-// Wrap the original handleKeyDown to add refetch
-const handleKeyDown = async (e: KeyboardEvent) => {
-    if (!fabricCanvas.value) return
-
-    // Handle backspace or delete key
-    if (e.key === 'Backspace' || e.key === 'Delete') {
-        const activeObject = fabricCanvas.value.getActiveObject()
-        if (activeObject && 'data' in activeObject) {
-            const rect = activeObject as CustomRect
-            await handleDeletion(rect)
-            fabricCanvas.value.remove(rect)
-            fabricCanvas.value.renderAll()
-        }
     }
 }
 
@@ -433,7 +467,7 @@ const saveCurrentModifications = async () => {
         for (const obj of objects) {
             const rect = obj as CustomRect
             if (rect) {
-                await handleModification(rect)
+                await handleBoxModification(rect)
             }
         }
     } finally {
@@ -469,13 +503,13 @@ onMounted(async () => {
     }
 })
 
-// Watch for image changes
-watch(() => image.value?.imageUrl, async (newUrl, oldUrl) => {
-    if (newUrl && newUrl !== oldUrl) {
-        await nextTick()
-        initCanvas()
-    }
-}, { immediate: true })
+// // Watch for image changes
+// watch(() => image.value?.imageUrl, async (newUrl, oldUrl) => {
+//     if (newUrl && newUrl !== oldUrl) {
+//         await nextTick()
+//         initCanvas()
+//     }
+// }, { immediate: true })
 
 
 // Cleanup function
@@ -486,4 +520,22 @@ onUnmounted(() => {
         fabricCanvas.value = null
     }
 })
+
+
+
+// Watch for image changes
+watch(() => image.value?.imageUrl, async (newUrl, oldUrl) => {
+    if (newUrl && newUrl !== oldUrl) {
+        // dispose the canvas
+        if (fabricCanvas.value) {
+            fabricCanvas.value.dispose()
+            fabricCanvas.value = null
+        }
+
+        initCanvas()
+    }
+}, { immediate: true })
+
+
+
 </script>
