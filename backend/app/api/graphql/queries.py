@@ -36,9 +36,9 @@ class Query:
         db: AsyncIOMotorDatabase = await anext(get_db())
         return await get_label_detections(db, dataset_id, image_id)
 
-    # @strawberry.field
-    # async def label_segmentations(
-    #     self, dataset_id: UUID, image_id: UUID
-    # ) -> LabelSegmentation:
-    #     db: AsyncIOMotorDatabase = await anext(get_db())
-    #     return await get_label_segmentations(db, dataset_id, image_id)
+    @strawberry.field
+    async def label_segmentations(
+        self, dataset_id: UUID, image_id: UUID
+    ) -> list[LabelSegmentation]:
+        db: AsyncIOMotorDatabase = await anext(get_db())
+        return await get_label_segmentations(db, dataset_id, image_id)

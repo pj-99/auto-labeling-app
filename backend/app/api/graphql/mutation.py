@@ -1,4 +1,4 @@
-from typing import Annotated, List, Union
+from typing import Annotated, List, Tuple, Union
 from uuid import UUID
 
 import strawberry
@@ -10,9 +10,16 @@ from crud.dataset import (
     insert_class,
     insert_image_to_dataset,
 )
-from crud.label import delete_label_detections, upsert_label_detections
+from crud.label import (
+    delete_label_detections,
+    upsert_label_detections,
+    upsert_label_segmentations,
+)
 from models.dataset import TrainingType
 from models.label_detection import LabelDetectionInput as LabelDetectionInputModel
+from models.label_segmentation import (
+    LabelSegmentationInput as LabelSegmentationInputModel,
+)
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 
@@ -82,6 +89,12 @@ class Mutation:
         width: float
         height: float
 
+    @strawberry.input
+    class LabelSegmentationInputGraphql:
+        id: UUID | None = None
+        class_id: int
+        mask: List[float]
+
     @strawberry.mutation
     async def upsert_label_detections(
         self,
@@ -92,7 +105,6 @@ class Mutation:
         Union[UpsertLabelSuccess, UpsertLabelError],
         strawberry.union("UpsertResponse"),
     ]:
-
         try:
             db: AsyncIOMotorDatabase = await anext(get_db())
             model_label_detections = [
@@ -102,7 +114,8 @@ class Mutation:
                 db, dataset_id, image_id, label_detections=model_label_detections
             )
             return UpsertLabelSuccess(labels=result)
-        except Exception:
+        except Exception as e:
+            print(e)
             # This can be enhanced
             return UpsertLabelError(
                 message="upsert label detections failed", code="INTERNAL_SERVER_ERROR"
@@ -123,7 +136,35 @@ class Mutation:
                     message="delete label not found",
                     code="NOT_FOUND",
                 )
-        except Exception:
+        except Exception as e:
+            print(e)
             return DeleteLabelError(
                 message="delete label failed", code="INTERNAL_SERVER_ERROR"
+            )
+
+    @strawberry.mutation
+    async def upsert_label_segmentations(
+        self,
+        dataset_id: UUID,
+        image_id: UUID,
+        label_segmentations: List[LabelSegmentationInputGraphql],
+    ) -> Annotated[
+        Union[UpsertLabelSuccess, UpsertLabelError],
+        strawberry.union("UpsertResponse"),
+    ]:
+        try:
+            db: AsyncIOMotorDatabase = await anext(get_db())
+            labels = [
+                LabelSegmentationInputModel(**label.__dict__)
+                for label in label_segmentations
+            ]
+            result = await upsert_label_segmentations(
+                db, dataset_id, image_id, label_segmentations=labels
+            )
+            return UpsertLabelSuccess(labels=result)
+        except Exception as e:
+            # This can be enhanced
+            print(e)
+            return UpsertLabelError(
+                message="upsert label detections failed", code="INTERNAL_SERVER_ERROR"
             )
