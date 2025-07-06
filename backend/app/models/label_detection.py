@@ -1,12 +1,10 @@
 from datetime import datetime
-from enum import Enum
 from uuid import UUID
 
-from pydantic import BaseModel
+from models.label import LabelBase
 
 
-class LabelDetectionBase(BaseModel):
-    class_id: int
+class LabelDetectionBase(LabelBase):
     x_center: float
     y_center: float
     width: float
