@@ -22,6 +22,9 @@ export default defineNuxtConfig({
     clients: {
       default: {
         httpEndpoint: 'http://localhost:8000/graphql'
+      },
+      autoLabeling: {
+        httpEndpoint: 'http://localhost:8080/graphql'
       }
     }
   },

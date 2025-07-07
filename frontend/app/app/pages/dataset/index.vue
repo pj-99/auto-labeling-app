@@ -56,7 +56,7 @@
 import { computed } from 'vue'
 import { useQuery } from '@vue/apollo-composable'
 import { gql } from 'graphql-tag'
-// import CreateDatasetModal from '@/components/dataset/CreateDatasetModal.vue'
+import CreateDatasetModal from '@/components/dataset/CreateDatasetModal.vue'
 
 definePageMeta({
   layout: 'default'

@@ -27,6 +27,8 @@ async def insert_image_to_dataset(
     gcs_file_name: str,
     image_name: str,
     image_type: str,
+    width: int,
+    height: int,
 ) -> Image:
     if not await check_dataset_exists(db, dataset_id):
         raise ValueError("Dataset not found")
@@ -45,6 +47,8 @@ async def insert_image_to_dataset(
             id=image_id,
             image_name=image_name,
             image_type=image_type,
+            width=width,
+            height=height,
             image_url=image_url,
             created_by=user_id,
         )

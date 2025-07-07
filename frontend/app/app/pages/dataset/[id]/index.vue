@@ -142,6 +142,8 @@ const INSERT_IMAGE_MUTATION = gql`
     $gcsFileName: String!
     $imageName: String!
     $imageType: String!
+    $width: Int!
+    $height: Int!
   ) {
     insertImageToDataset(
       userId: $userId
@@ -149,6 +151,8 @@ const INSERT_IMAGE_MUTATION = gql`
       gcsFileName: $gcsFileName
       imageName: $imageName
       imageType: $imageType
+      width: $width
+      height: $height
     ) {
       id
       imageName
@@ -251,10 +255,9 @@ const handleFileChange = async (event: Event) => {
     for (const file of Array.from(input.files)) {
       // Step 1: Get signed URL for the file
       const { url: signedUrl, filename } = await getSignedUrl(file.type);
-
       // Step 2: Upload the file to GCS using the signed URL
       await uploadFileToGCS(file, signedUrl);
-
+      const { width, height } = await getImageDimensions(file);
       // Step 3: Insert image record via GraphQL mutation
       await insertImageMutation({
         userId,
@@ -262,6 +265,8 @@ const handleFileChange = async (event: Event) => {
         gcsFileName: filename,
         imageName: file.name,
         imageType: file.type,
+        width: width,
+        height: height,
       });
     }
 

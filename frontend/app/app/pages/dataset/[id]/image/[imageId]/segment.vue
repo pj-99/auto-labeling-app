@@ -4,9 +4,11 @@
         <div class="mx-auto flex gap-8">
             <!-- Left Sidebar -->
             <div class="w-48 shrink-0 flex flex-col gap-6 bg-white rounded-lg shadow-lg border border-gray-200 p-4 h-fit">
-                <UButton icon="i-heroicons-sparkles" color="neutral">
-                    Auto Labeling
-                </UButton>
+                <AutoLabeling v-model="selectedModel" class="w-full" />
+
+                <ClassPanel v-model:selected-class="selectedClass" v-model:new-class-name="newClassName" :class-items="classItems" :is-adding-class="isAddingClass" :create-new-class="createNewClass" />
+                
+
                 <div class="flex flex-col gap-2">
                     <UButton 
                         icon="i-heroicons-pencil-square" 
@@ -32,48 +34,9 @@
                 >
                     Save Changes
                 </UButton>
-                <!-- Class List -->
-                <div class="flex flex-col gap-2">
-                    <h2 class="text-lg font-medium mb-2">Class Selector</h2>
-                    <!-- Class Selection -->
-                    <USelect
-                        v-model="selectedClass"
-                        :items="classItems"
-                        placeholder="Select a class"
-                        icon="i-heroicons-tag"
-                        :loading="isAddingClass"
-                        class="mb-2"
-                    >
-                        <template #item="{ item }">
-                            <div class="flex items-center gap-2">
-                                <div 
-                                    class="w-2 h-2 rounded-full" 
-                                    :style="{ backgroundColor: getClassColor(item.value) }"
-                                />
-                                <span>{{ item.label }}</span>
-                            </div>
-                        </template>
-                    </USelect>
-                    <!-- Add New Class -->
-                    <div class="flex gap-2">
-                        <UInput
-                            v-model="newClassName"
-                            placeholder="New class name"
-                            size="sm"
-                            class="flex-1"
-                            @keyup.enter="createNewClass"
-                        />
-                        <UButton
-                            icon="i-heroicons-plus"
-                            color="primary"
-                            variant="soft"
-                            size="sm"
-                            :loading="isAddingClass"
-                            :disabled="!newClassName"
-                            @click="createNewClass"
-                        />
-                    </div>
-                </div>
+
+
+
                 <!-- Label List -->
                 <div class="flex flex-col gap-2">
                     <h2 class="text-lg font-medium mb-2">Label List</h2>
@@ -111,6 +74,13 @@
                     @mousedown="handleMouseDown"
                     @mousemove="handleMouseMove"
                     >
+                    <!-- Loading Overlay for Auto-Labeling -->
+                    <div v-if="isAutoLabelLoading" class="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div class="bg-white rounded-lg p-4 flex flex-col items-center gap-2">
+                            <span class="text-sm font-medium">Auto-labeling...</span>
+                            <UProgress color="success" />
+                        </div>
+                    </div>
                     <canvas ref="canvasEl" class="absolute inset-0" />
                     <div v-if="!image" class="text-gray-400 flex flex-col items-center gap-2">
                         <UIcon name="i-heroicons-photo" class="w-16 h-16" />
@@ -137,18 +107,12 @@ import { Canvas as FabricCanvas, FabricImage } from 'fabric'
 import { useLabelSeg } from '../../../../../composables/useLabelSeg'
 import type { LabelSegmentation, CustomPolygon } from '../../../../../composables/useLabelSeg'
 import type { Ref } from 'vue';
-
-interface Class {
-    id: string;
-    name: string;
-    createdAt: string;
-    updatedAt: string;
-}
-
-interface ClassItem {
-    value: string;
-    label: string;
-}
+import AutoLabeling from '../../../../../components/labeling/AutoLabeling.vue';
+import type {ModelType} from '../../../../../components/labeling/AutoLabeling.vue';
+import type { ClassItem } from '~/components/labeling/ClassPanel.vue';
+import ClassPanel from '../../../../../components/labeling/ClassPanel.vue';
+import { useClassOptions } from '../../../../../composables/useCalssOptions'
+import { useAutoLabelingMutation, SAMMutation } from '../../../../../composables/useAutoLabelingQuery'
 
 const route = useRoute()
 
@@ -156,13 +120,21 @@ const imageIdBase64 = route.params.imageId
 const imageId = decodeBase64ToUuid(imageIdBase64 as string)
 const datasetId = decodeBase64ToUuid(route.params.id as string)
 
+
+const selectedModel = ref<ModelType>('none')
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 const fabricCanvas = ref<FabricCanvas | null>(null)
 const drawingMode = ref<'none' | 'box' | 'segmentation'>('none')
 const isSaving = ref(false)
-const selectedClass = ref<string | null>(null)
+const selectedClass = ref<number | null>(null)
 const newClassName = ref('')
 const isAddingClass = ref(false)
+const isAutoLabelLoading = ref(false)
+
+const { mutate: predictSam } = useAutoLabelingMutation(SAMMutation)
+const toast = useToast()
+
+
 
 // TODO: Replace with actual user ID from auth system
 const userId = '123e4567-e89b-12d3-a456-426614174000'
@@ -173,6 +145,8 @@ const IMAGE_QUERY = gql`
       id
       imageName
       imageUrl
+      width
+      height
       createdAt
       updatedAt
       caption
@@ -231,26 +205,12 @@ const { mutate: insertClass } = useMutation(INSERT_CLASS_MUTATION)
 
 const image = computed(() => imageData.value?.image)
 const segmentations = computed(() => segmentationData.value?.labelSegmentations || [])
-const classes = computed(() => classesData.value?.classes || [] as Class[])
 
-// Format classes for USelect
-const classItems = computed(() => classes.value.map((cls: Class) => ({
-    label: cls.name,
-    value: cls.id,
-})))
-
-// Create a map of class ID to name
-const classIdToName = computed(() => {
-    const map = new Map<string, string>()
-    classes.value.forEach((cls: Class) => {
-        map.set(cls.id, cls.name)
-    })
-    return map
-})
-
+const { classItems, classIdToName } = useClassOptions(classesData)
 
 
 const wrappedRefetchSegmentations = async () => {
+    console.log("wrappedRefetchSegmentations")
     await refetchSegmentations()
 }
 
@@ -264,7 +224,8 @@ const {
     handleDeletion: handleSegDeletion,
     handleKeyDown: handleSegKeyDown,
     isDrawing: isSegDrawing,
-} = useLabelSeg(fabricCanvas as Ref<FabricCanvas | null>, datasetId, imageId, wrappedRefetchSegmentations, selectedClass, getClassColor)
+    addPolygon,
+} = useLabelSeg(fabricCanvas as Ref<FabricCanvas | null>, datasetId, wrappedRefetchSegmentations, imageId, selectedClass)
 
 // Update drawing mode toggle
 const toggleDrawingMode = (mode: 'none' | 'box' | 'segmentation') => {
@@ -354,15 +315,12 @@ const initCanvas = async () => {
     })
 
 
-    console.log("labels segmentations", segmentations.value)
     // Add existing segmentation labels
     segmentations.value.forEach((label: LabelSegmentation) => {
-        console.log("segementation Label mask", label.mask)
         addExistingSegmentation(label)
     })
 
     fabricCanvas.value.on('object:moving', (e) => {
-        console.log("object:moving", e)
         const obj = e.target as CustomPolygon;
         // Bounded in canvas
         if (obj.left! < 0) {
@@ -383,10 +341,27 @@ const initCanvas = async () => {
         const obj = e.target
         if (!obj || !('data' in obj)) return
 
-        console.log("object:modified seg", obj)
         await handleSegModification(obj as CustomPolygon)
     })
 
+    fabricCanvas.value.on('mouse:down', async (e) => {
+        console.log("mouse:down", e)
+        // Handle auto labeling methods
+        if (selectedModel.value === 'SAM') {
+
+            try {
+                isAutoLabelLoading.value = true
+                const { x, y } = getMousePoint(e.e as MouseEvent, fabricCanvas.value! as FabricCanvas, image.value!.width)
+                await pointToSegBySAM(x, y)
+                fabricCanvas.value!.renderAll()
+            } catch (error) {
+                console.error('Failed to auto-label:', error)
+            } finally {
+                isAutoLabelLoading.value = false
+            }
+        }
+    })
+    
     fabricCanvas.value.renderAll()
 }
 
@@ -404,6 +379,7 @@ const deleteSelectedLabel = async (label: LabelDetection) => {
     if (target) {
         await handleSegDeletion(target)
     }
+    await wrappedRefetchSegmentations()
 }
 
 
@@ -426,9 +402,11 @@ const saveCurrentModifications = async () => {
     } finally {
         isSaving.value = false
     }
+    await wrappedRefetchSegmentations()
 }
 
 const createNewClass = async () => {
+    console.log("createNewClass", newClassName.value)
     if (!newClassName.value) return
     
     isAddingClass.value = true
@@ -444,6 +422,52 @@ const createNewClass = async () => {
     } finally {
         isAddingClass.value = false
     }
+}
+
+const pointToSegBySAM = async (pointX: number, pointY: number) => {
+    console.log("pointToSegBySAM", pointX, pointY)
+    if (!image.value) return
+
+    if (!selectedClass.value) {
+        toast.add({
+            title: 'Please select a class first',
+            color: 'error',
+        })
+        return
+    }
+
+    const result = await predictSam({
+        imageUrl: image.value.imageUrl,
+        points: [[pointX, pointY]],
+        labels: [1],
+    })
+
+    if (!result) return
+
+    for(const mask of result.data?.predict.masks || []) {
+        const points = mask.xy.map((point: number[]) => ({ x: point[0], y: point[1] }))
+
+        const scaleFactor =  fabricCanvas.value!.width / image.value!.width
+
+        // Normalize points to canvas coordinates
+        const normalizedPoints = points.map((point: { x: number, y: number }) => ({
+            x: point.x * scaleFactor,
+            y: point.y * scaleFactor
+        }))
+
+        const label = addPolygon(normalizedPoints, selectedClass.value!);
+        
+        // Save back to the backend
+        if (label) {
+            const newLabelId = await handleSegModification(label)
+            if (newLabelId && !label.data?.labelId ) {
+                label.data!.labelId = newLabelId
+            }
+        }
+    }
+
+    fabricCanvas.value!.renderAll()
+    await wrappedRefetchSegmentations()
 }
 
 // Initialize canvas when component is mounted and watch for image changes

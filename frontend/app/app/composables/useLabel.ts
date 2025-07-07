@@ -6,7 +6,7 @@ import { gql } from 'graphql-tag'
 import { useMutation } from '@vue/apollo-composable'
 export interface LabelDetection {
     id?: string
-    classId: string
+    classId: number
     xCenter: number
     yCenter: number
     width: number
@@ -17,7 +17,7 @@ interface UpsertLabelDetectionSuccess {
     __typename: 'UpsertLabelDetectionSuccess'
     labels: Array<{
         id: string
-        classId: string
+        classId: number
         xCenter: number
         yCenter: number
         width: number
@@ -38,7 +38,7 @@ type UpsertLabelResult = {
 export interface CustomRect extends Rect {
     data?: {
         labelId: string
-        classId: string
+        classId: number
     }
 }
 
@@ -88,10 +88,9 @@ const DELETE_LABEL_MUTATION = gql`
 export const useLabel = (
     fabricCanvas: Ref<FabricCanvas | null>,
     datasetId: string,
+    refetch: () => Promise<void>,
     imageId: string,
-    onLabelUpdate?: () => Promise<void>,
-    selectedClassId?: Ref<string | null>,
-    getClassColor?: (classId: string) => string
+    selectedClassId?: Ref<number | null>,
 ) => {
     const currentRect = ref<CustomRect | null>(null)
     const isDrawing = ref(false)
@@ -174,7 +173,6 @@ export const useLabel = (
             width: rect.width! / canvasWidth,
             height: rect.height! / canvasHeight
         }
-
         try {
             const { data } = await upsertLabels({
                 datasetId,
@@ -191,7 +189,6 @@ export const useLabel = (
                             labelId: newLabel.id,
                             classId: newLabel.classId
                         }
-                        await onLabelUpdate?.()
                     }
                 }
             }
@@ -204,10 +201,11 @@ export const useLabel = (
         canvas.renderAll()
 
         isDrawing.value = false
+        await refetch()
     }
 
-    const addExistingLabel = (label: LabelDetection) => {
-        if (!fabricCanvas.value) return
+    const addExistingLabel = (label: LabelDetection): CustomRect | null => {
+        if (!fabricCanvas.value) return null
         const labelWidth = label.width * fabricCanvas.value.width!
         const labelHeight = label.height * fabricCanvas.value.height!
 
@@ -224,10 +222,12 @@ export const useLabel = (
 
         fabricCanvas.value.add(markRaw(rect))
         fabricCanvas.value.renderAll()
+        return rect
     }
 
-    const handleModification = async (rect: CustomRect) => {
-        if (!fabricCanvas.value) return
+    const handleModification = async (rect: CustomRect): Promise<string | null> => {
+        console.log("handleModification", rect)
+        if (!fabricCanvas.value) return null
 
         const canvasWidth = fabricCanvas.value.width!
         const canvasHeight = fabricCanvas.value.height!
@@ -244,15 +244,23 @@ export const useLabel = (
         }
 
         try {
-            await upsertLabels({
+            console.log("upserting labelDetection", labelDetection)
+            const result = await upsertLabels({
                 datasetId,
                 imageId,
-                labelDetections: [labelDetection]
+                labelDetections: [{ ...labelDetection }]
             })
-            await onLabelUpdate?.()
+            if (!result || !result.data) return null
+            if (result.data?.upsertLabelDetections.__typename === 'UpsertLabelDetectionSuccess') {
+                if (result.data.upsertLabelDetections.labels.length > 0) {
+                    return result.data.upsertLabelDetections.labels[0].id
+                }
+            }
+            await refetch()
         } catch (error) {
             console.error('Failed to update label:', error)
         }
+        return null
     }
 
     const handleDeletion = async (rect: CustomRect) => {
@@ -261,7 +269,7 @@ export const useLabel = (
                 await deleteLabel({
                     labelId: rect.data.labelId
                 })
-                await onLabelUpdate?.()
+                await refetch()
             } catch (error) {
                 console.error('Failed to delete label:', error)
             }
