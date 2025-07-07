@@ -82,8 +82,8 @@ const DELETE_LABEL_MUTATION = gql`
 export const useLabelSeg = (
     fabricCanvas: Ref<FabricCanvas | null>,
     datasetId: string,
+    refetch: () => Promise<void>,
     imageId: string,
-    onLabelUpdate?: () => Promise<void>,
     selectedClassId?: Ref<number | null>,
 ) => {
     const currentPolygon = ref<CustomPolygon | null>(null)
@@ -216,7 +216,6 @@ export const useLabelSeg = (
                             labelId: newLabel.id,
                             classId: newLabel.classId
                         }
-                        await onLabelUpdate?.()
                     }
                 }
             }
@@ -244,14 +243,29 @@ export const useLabelSeg = (
         points.value = []
 
         isDrawing.value = false
+
+        await refetch()
     }
 
-    const addExistingLabel = (label: LabelSegmentation) => {
-        if (!fabricCanvas.value) return
+    const addPolygon = (points: { x: number; y: number }[], classId: number) => {
+        const polygon = createPolygon({
+            points: points,
+            data: {
+                labelId: null,
+                classId: classId
+            },
+        })
+        fabricCanvas.value?.add(markRaw(polygon))
+        return polygon
+    }
+
+    const addExistingLabel = async (label: LabelSegmentation): Promise<CustomPolygon | null> => {
+        if (!fabricCanvas.value) return null
         const canvas = fabricCanvas.value
 
         // Convert normalized points back to canvas coordinates
         const canvasPoints: { x: number; y: number }[] = []
+
         for (let i = 0; i < label.mask.length; i += 2) {
             canvasPoints.push({
                 x: label.mask[i] * (canvas.width ?? 1),
@@ -269,10 +283,12 @@ export const useLabelSeg = (
 
         canvas.add(markRaw(polygon))
         canvas.renderAll()
+
+        return polygon
     }
 
-    const handleModification = async (polygon: CustomPolygon) => {
-        if (!fabricCanvas.value) return
+    const handleModification = async (polygon: CustomPolygon): Promise<string | null> => {
+        if (!fabricCanvas.value) return null
 
         const canvas = fabricCanvas.value
         const canvasWidth = canvas.width ?? 1
@@ -293,14 +309,25 @@ export const useLabelSeg = (
         }
 
         try {
-            await upsertLabels({
+            const result = await upsertLabels({
                 datasetId,
                 imageId,
                 labelSegmentations: [labelSegmentation]
             })
-            await onLabelUpdate?.()
+            if (!result) {
+                console.error('Failed to update segmentation label:', result)
+                return null
+            }
+            if (result.data?.upsertLabelSegmentations.__typename === 'UpsertLabelSegmentationSuccess') {
+                const labels = result.data.upsertLabelSegmentations.labels
+                if (labels && labels.length > 0) {
+                    return labels[0].id
+                }
+            }
+            return null
         } catch (error) {
             console.error('Failed to update segmentation label:', error)
+            return null
         }
     }
 
@@ -310,15 +337,16 @@ export const useLabelSeg = (
                 await deleteLabel({
                     labelId: polygon.data.labelId
                 })
-                await onLabelUpdate?.()
             } catch (error) {
                 console.error('Failed to delete segmentation label:', error)
             }
         }
         fabricCanvas.value?.remove(polygon)
+        await refetch()
     }
 
     const handleKeyDown = async (e: KeyboardEvent) => {
+        console.log("useLabelSeg handleKeyDown", e)
         if (!fabricCanvas.value) return
 
         if (e.key === 'Escape' && isDrawing.value) {
@@ -326,7 +354,7 @@ export const useLabelSeg = (
             isDrawing.value = false
             points.value = []
             if (currentPolygon.value) {
-                fabricCanvas.value.remove(currentPolygon.value)
+                fabricCanvas.value.remove(currentPolygon.value as unknown as FabricObject)
                 currentPolygon.value = null
                 fabricCanvas.value.renderAll()
             }
@@ -355,7 +383,8 @@ export const useLabelSeg = (
         handleDeletion,
         handleKeyDown,
         isDrawing,
-        currentPolygon
+        currentPolygon,
+        addPolygon
     }
 }
 

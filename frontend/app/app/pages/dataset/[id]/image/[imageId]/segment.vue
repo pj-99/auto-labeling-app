@@ -74,6 +74,13 @@
                     @mousedown="handleMouseDown"
                     @mousemove="handleMouseMove"
                     >
+                    <!-- Loading Overlay for Auto-Labeling -->
+                    <div v-if="isAutoLabelLoading" class="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div class="bg-white rounded-lg p-4 flex flex-col items-center gap-2">
+                            <span class="text-sm font-medium">Auto-labeling...</span>
+                            <UProgress color="success" />
+                        </div>
+                    </div>
                     <canvas ref="canvasEl" class="absolute inset-0" />
                     <div v-if="!image" class="text-gray-400 flex flex-col items-center gap-2">
                         <UIcon name="i-heroicons-photo" class="w-16 h-16" />
@@ -105,6 +112,7 @@ import type {ModelType} from '../../../../../components/labeling/AutoLabeling.vu
 import type { ClassItem } from '~/components/labeling/ClassPanel.vue';
 import ClassPanel from '../../../../../components/labeling/ClassPanel.vue';
 import { useClassOptions } from '../../../../../composables/useCalssOptions'
+import { useAutoLabelingMutation, SAMMutation } from '../../../../../composables/useAutoLabelingQuery'
 
 const route = useRoute()
 
@@ -121,6 +129,12 @@ const isSaving = ref(false)
 const selectedClass = ref<number | null>(null)
 const newClassName = ref('')
 const isAddingClass = ref(false)
+const isAutoLabelLoading = ref(false)
+
+const { mutate: predictSam } = useAutoLabelingMutation(SAMMutation)
+const toast = useToast()
+
+
 
 // TODO: Replace with actual user ID from auth system
 const userId = '123e4567-e89b-12d3-a456-426614174000'
@@ -131,6 +145,8 @@ const IMAGE_QUERY = gql`
       id
       imageName
       imageUrl
+      width
+      height
       createdAt
       updatedAt
       caption
@@ -194,6 +210,7 @@ const { classItems, classIdToName } = useClassOptions(classesData)
 
 
 const wrappedRefetchSegmentations = async () => {
+    console.log("wrappedRefetchSegmentations")
     await refetchSegmentations()
 }
 
@@ -207,7 +224,8 @@ const {
     handleDeletion: handleSegDeletion,
     handleKeyDown: handleSegKeyDown,
     isDrawing: isSegDrawing,
-} = useLabelSeg(fabricCanvas as Ref<FabricCanvas | null>, datasetId, imageId, wrappedRefetchSegmentations, selectedClass)
+    addPolygon,
+} = useLabelSeg(fabricCanvas as Ref<FabricCanvas | null>, datasetId, wrappedRefetchSegmentations, imageId, selectedClass)
 
 // Update drawing mode toggle
 const toggleDrawingMode = (mode: 'none' | 'box' | 'segmentation') => {
@@ -326,6 +344,24 @@ const initCanvas = async () => {
         await handleSegModification(obj as CustomPolygon)
     })
 
+    fabricCanvas.value.on('mouse:down', async (e) => {
+        console.log("mouse:down", e)
+        // Handle auto labeling methods
+        if (selectedModel.value === 'SAM') {
+
+            try {
+                isAutoLabelLoading.value = true
+                const { x, y } = getMousePoint(e.e as MouseEvent, fabricCanvas.value! as FabricCanvas, image.value!.width)
+                await pointToSegBySAM(x, y)
+                fabricCanvas.value!.renderAll()
+            } catch (error) {
+                console.error('Failed to auto-label:', error)
+            } finally {
+                isAutoLabelLoading.value = false
+            }
+        }
+    })
+    
     fabricCanvas.value.renderAll()
 }
 
@@ -343,6 +379,7 @@ const deleteSelectedLabel = async (label: LabelDetection) => {
     if (target) {
         await handleSegDeletion(target)
     }
+    await wrappedRefetchSegmentations()
 }
 
 
@@ -365,6 +402,7 @@ const saveCurrentModifications = async () => {
     } finally {
         isSaving.value = false
     }
+    await wrappedRefetchSegmentations()
 }
 
 const createNewClass = async () => {
@@ -384,6 +422,52 @@ const createNewClass = async () => {
     } finally {
         isAddingClass.value = false
     }
+}
+
+const pointToSegBySAM = async (pointX: number, pointY: number) => {
+    console.log("pointToSegBySAM", pointX, pointY)
+    if (!image.value) return
+
+    if (!selectedClass.value) {
+        toast.add({
+            title: 'Please select a class first',
+            color: 'error',
+        })
+        return
+    }
+
+    const result = await predictSam({
+        imageUrl: image.value.imageUrl,
+        points: [[pointX, pointY]],
+        labels: [1],
+    })
+
+    if (!result) return
+
+    for(const mask of result.data?.predict.masks || []) {
+        const points = mask.xy.map((point: number[]) => ({ x: point[0], y: point[1] }))
+
+        const scaleFactor =  fabricCanvas.value!.width / image.value!.width
+
+        // Normalize points to canvas coordinates
+        const normalizedPoints = points.map((point: { x: number, y: number }) => ({
+            x: point.x * scaleFactor,
+            y: point.y * scaleFactor
+        }))
+
+        const label = addPolygon(normalizedPoints, selectedClass.value!);
+        
+        // Save back to the backend
+        if (label) {
+            const newLabelId = await handleSegModification(label)
+            if (newLabelId && !label.data?.labelId ) {
+                label.data!.labelId = newLabelId
+            }
+        }
+    }
+
+    fabricCanvas.value!.renderAll()
+    await wrappedRefetchSegmentations()
 }
 
 // Initialize canvas when component is mounted and watch for image changes

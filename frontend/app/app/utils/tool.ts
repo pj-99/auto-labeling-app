@@ -1,4 +1,5 @@
 import chroma from "chroma-js"
+import type { Canvas as FabricCanvas } from "fabric"
 
 export function encodeUuidToBase64(uuidStr: string): string {
     // TODO
@@ -66,3 +67,23 @@ export const getImageDimensions = (file: File): Promise<{ width: number; height:
         };
     });
 };
+
+
+/**
+ * Get the mouse point in real image size
+ * @param e - The mouse event
+ * @param fabricCanvas - The fabric canvas
+ * @param imageWidth - The width of the image
+ * @returns The mouse point in real image size
+ */
+export const getMousePoint = (e: MouseEvent, fabricCanvas: FabricCanvas, imageWidth: number): {
+    x: number,
+    y: number
+} => {
+
+    const pointer = fabricCanvas.getPointer(e)
+    const scaleFactor = imageWidth / fabricCanvas.width
+    const normalizedX = Math.round(pointer.x * scaleFactor)
+    const normalizedY = Math.round(pointer.y * scaleFactor)
+    return { x: normalizedX, y: normalizedY }
+}

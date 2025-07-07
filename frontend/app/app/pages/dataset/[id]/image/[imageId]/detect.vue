@@ -210,13 +210,17 @@ const toast = useToast()
 
 
 const image = computed(() => imageData.value?.image)
-const labels = computed(() => labelData.value?.labelDetections || [])
+const labels = computed(() => {
+    console.log("labelData", labelData.value)
+    return labelData.value?.labelDetections || []
+})
 
 const { classItems, classIdToName } = useClassOptions(classesData)
 
 
 // Wrap refetch functions to ensure they return Promise<void>
 const wrappedRefetchLabels = async () => {
+    console.log("wrappedRefetchLabels")
     await refetchLabels()
 }
 
@@ -229,7 +233,7 @@ const {
     handleModification: handleBoxModification,
     handleDeletion: handleBoxDeletion,
     isDrawing: isBoxDrawing,
-} = useLabel(fabricCanvas as Ref<FabricCanvas | null>, datasetId, imageId, wrappedRefetchLabels, selectedClass)
+} = useLabel(fabricCanvas as Ref<FabricCanvas | null>, datasetId, wrappedRefetchLabels, imageId, selectedClass)
 
 // Update drawing mode toggle
 const toggleDrawingMode = (mode: 'none' | 'box' | 'segmentation') => {
@@ -270,6 +274,7 @@ const handleKeyDown = async (e: KeyboardEvent) => {
                 await handleBoxDeletion(rect)
                 fabricCanvas.value.remove(rect)
                 fabricCanvas.value.renderAll()
+                await wrappedRefetchLabels()
             }
         }
     }
@@ -384,12 +389,17 @@ const initCanvas = async () => {
         console.log("mouse:down", e)
         // Handle auto labeling methods
         if (selectedModel.value === 'SAM') {
-            const x = Math.round(e.scenePoint.x)
-            const y = Math.round(e.scenePoint.y)
-            isAutoLabelLoading.value = true
-            await pointToBoxBySAM(x, y)
-            fabricCanvas.value!.renderAll()
-            isAutoLabelLoading.value = false
+            try {
+                isAutoLabelLoading.value = true
+                const {x , y} = getMousePoint(e.e as MouseEvent, fabricCanvas.value! as FabricCanvas, image.value!.width)
+                await pointToBoxBySAM(x, y)
+                await wrappedRefetchLabels()
+            } catch (error) {
+                console.error('Failed to auto-label:', error)
+            } finally {
+                isAutoLabelLoading.value = false
+                fabricCanvas.value!.renderAll()
+            }
         }
     })
     
@@ -413,6 +423,7 @@ const deleteSelectedLabel = async (label: LabelDetection) => {
         fabricCanvas.value.remove(rect)
         fabricCanvas.value.renderAll()
     }
+    await wrappedRefetchLabels()
 }
 
 const saveCurrentModifications = async () => {
@@ -431,6 +442,7 @@ const saveCurrentModifications = async () => {
         }
     } finally {
         isSaving.value = false
+        await wrappedRefetchLabels()
     }
 }
 
@@ -472,9 +484,10 @@ const pointToBoxBySAM = async (pointX: number, pointY: number) => {
         labels: [1],
     })
     
+    console.log("result", result)
     if (!result) return
 
-    result.data?.predict.boxes.forEach(async (box: any) => {
+    for (const box of result.data?.predict.boxes || []) {
         const { xCenter, yCenter, width, height } = xyxyToXCenterYCenter(box.xyxy, image.value.width, image.value.height)
         const label = addExistingBox({
             classId: selectedClass.value!,
@@ -485,13 +498,11 @@ const pointToBoxBySAM = async (pointX: number, pointY: number) => {
         })
         if (label) {
             const newLabelId = await handleBoxModification(label)
-            if (newLabelId && !label.data?.labelId ) {
-                label.data!.labelId = newLabelId
+            if (newLabelId) {
+                label.data!.labelId = newLabelId       
             }
         }
-    })
-
-    await wrappedRefetchLabels()
+    }
 }
 
 // Initialize canvas when component is mounted and watch for image changes

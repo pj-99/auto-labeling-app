@@ -88,8 +88,8 @@ const DELETE_LABEL_MUTATION = gql`
 export const useLabel = (
     fabricCanvas: Ref<FabricCanvas | null>,
     datasetId: string,
+    refetch: () => Promise<void>,
     imageId: string,
-    onLabelUpdate?: () => Promise<void>,
     selectedClassId?: Ref<number | null>,
 ) => {
     const currentRect = ref<CustomRect | null>(null)
@@ -173,7 +173,6 @@ export const useLabel = (
             width: rect.width! / canvasWidth,
             height: rect.height! / canvasHeight
         }
-
         try {
             const { data } = await upsertLabels({
                 datasetId,
@@ -190,7 +189,6 @@ export const useLabel = (
                             labelId: newLabel.id,
                             classId: newLabel.classId
                         }
-                        await onLabelUpdate?.()
                     }
                 }
             }
@@ -203,6 +201,7 @@ export const useLabel = (
         canvas.renderAll()
 
         isDrawing.value = false
+        await refetch()
     }
 
     const addExistingLabel = (label: LabelDetection): CustomRect | null => {
@@ -245,19 +244,19 @@ export const useLabel = (
         }
 
         try {
+            console.log("upserting labelDetection", labelDetection)
             const result = await upsertLabels({
                 datasetId,
                 imageId,
-                labelDetections: [labelDetection]
+                labelDetections: [{ ...labelDetection }]
             })
-            console.log("upsert result", result)
             if (!result || !result.data) return null
             if (result.data?.upsertLabelDetections.__typename === 'UpsertLabelDetectionSuccess') {
                 if (result.data.upsertLabelDetections.labels.length > 0) {
                     return result.data.upsertLabelDetections.labels[0].id
                 }
             }
-            await onLabelUpdate?.()
+            await refetch()
         } catch (error) {
             console.error('Failed to update label:', error)
         }
@@ -270,7 +269,7 @@ export const useLabel = (
                 await deleteLabel({
                     labelId: rect.data.labelId
                 })
-                await onLabelUpdate?.()
+                await refetch()
             } catch (error) {
                 console.error('Failed to delete label:', error)
             }
