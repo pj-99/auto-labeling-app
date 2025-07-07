@@ -8,7 +8,7 @@ import { useMutation } from '@vue/apollo-composable'
 
 export interface LabelSegmentation {
     id?: string
-    classId: string
+    classId: number
     mask: number[] // Normalized points [x1, y1, x2, y2, ...]
 }
 
@@ -16,7 +16,7 @@ interface UpsertLabelSegmentationSuccess {
     __typename: 'UpsertLabelSegmentationSuccess'
     labels: Array<{
         id: string
-        classId: string
+        classId: number
         mask: number[]
     }>
 }
@@ -35,7 +35,7 @@ export interface CustomPolygon extends Polygon {
     editing: boolean
     data?: {
         labelId: string
-        classId: string
+        classId: number
     }
 }
 
@@ -84,7 +84,7 @@ export const useLabelSeg = (
     datasetId: string,
     imageId: string,
     onLabelUpdate?: () => Promise<void>,
-    selectedClassId?: Ref<string | null>,
+    selectedClassId?: Ref<number | null>,
 ) => {
     const currentPolygon = ref<CustomPolygon | null>(null)
     const isDrawing = ref(false)
@@ -93,7 +93,7 @@ export const useLabelSeg = (
     const { mutate: upsertLabels } = useMutation(UPSERT_LABELS_MUTATION)
     const { mutate: deleteLabel } = useMutation(DELETE_LABEL_MUTATION)
 
-    const createPolygon = (options: { points: { x: number; y: number }[]; data?: { labelId: string; classId: string } }) => {
+    const createPolygon = (options: { points: { x: number; y: number }[]; data?: { labelId: string; classId: number } }) => {
         const classId = options.data?.classId || selectedClassId?.value
         const color = classId && getClassColor ? getClassColor(classId) : 'blue'
 

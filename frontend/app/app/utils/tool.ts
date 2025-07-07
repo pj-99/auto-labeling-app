@@ -14,10 +14,9 @@ export function decodeBase64ToUuid(b64: string): string {
 export const colors = computed(() => chroma.scale('Spectral').mode('lab').colors(10))
 
 // Get a consistent color for a class ID
-export const getClassColor = (classId: string) => {
+export const getClassColor = (classId: number) => {
     if (classId == null) return colors.value[colors.value.length - 1]!
-    if (classId == "todo") return "blue"
-    return colors.value[Number(classId) % colors.value.length]!
+    return colors.value[classId % colors.value.length]!
 }
 
 

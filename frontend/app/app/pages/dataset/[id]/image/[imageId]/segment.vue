@@ -4,9 +4,11 @@
         <div class="mx-auto flex gap-8">
             <!-- Left Sidebar -->
             <div class="w-48 shrink-0 flex flex-col gap-6 bg-white rounded-lg shadow-lg border border-gray-200 p-4 h-fit">
-                <UButton icon="i-heroicons-sparkles" color="neutral">
-                    Auto Labeling
-                </UButton>
+                <AutoLabeling v-model="selectedModel" class="w-full" />
+
+                <ClassPanel v-model:selected-class="selectedClass" v-model:new-class-name="newClassName" :class-items="classItems" :is-adding-class="isAddingClass" :create-new-class="createNewClass" />
+                
+
                 <div class="flex flex-col gap-2">
                     <UButton 
                         icon="i-heroicons-pencil-square" 
@@ -32,48 +34,9 @@
                 >
                     Save Changes
                 </UButton>
-                <!-- Class List -->
-                <div class="flex flex-col gap-2">
-                    <h2 class="text-lg font-medium mb-2">Class Selector</h2>
-                    <!-- Class Selection -->
-                    <USelect
-                        v-model="selectedClass"
-                        :items="classItems"
-                        placeholder="Select a class"
-                        icon="i-heroicons-tag"
-                        :loading="isAddingClass"
-                        class="mb-2"
-                    >
-                        <template #item="{ item }">
-                            <div class="flex items-center gap-2">
-                                <div 
-                                    class="w-2 h-2 rounded-full" 
-                                    :style="{ backgroundColor: getClassColor(item.value) }"
-                                />
-                                <span>{{ item.label }}</span>
-                            </div>
-                        </template>
-                    </USelect>
-                    <!-- Add New Class -->
-                    <div class="flex gap-2">
-                        <UInput
-                            v-model="newClassName"
-                            placeholder="New class name"
-                            size="sm"
-                            class="flex-1"
-                            @keyup.enter="createNewClass"
-                        />
-                        <UButton
-                            icon="i-heroicons-plus"
-                            color="primary"
-                            variant="soft"
-                            size="sm"
-                            :loading="isAddingClass"
-                            :disabled="!newClassName"
-                            @click="createNewClass"
-                        />
-                    </div>
-                </div>
+
+
+
                 <!-- Label List -->
                 <div class="flex flex-col gap-2">
                     <h2 class="text-lg font-medium mb-2">Label List</h2>
@@ -137,18 +100,11 @@ import { Canvas as FabricCanvas, FabricImage } from 'fabric'
 import { useLabelSeg } from '../../../../../composables/useLabelSeg'
 import type { LabelSegmentation, CustomPolygon } from '../../../../../composables/useLabelSeg'
 import type { Ref } from 'vue';
-
-interface Class {
-    id: string;
-    name: string;
-    createdAt: string;
-    updatedAt: string;
-}
-
-interface ClassItem {
-    value: string;
-    label: string;
-}
+import AutoLabeling from '../../../../../components/labeling/AutoLabeling.vue';
+import type {ModelType} from '../../../../../components/labeling/AutoLabeling.vue';
+import type { ClassItem } from '~/components/labeling/ClassPanel.vue';
+import ClassPanel from '../../../../../components/labeling/ClassPanel.vue';
+import { useClassOptions } from '../../../../../composables/useCalssOptions'
 
 const route = useRoute()
 
@@ -156,11 +112,13 @@ const imageIdBase64 = route.params.imageId
 const imageId = decodeBase64ToUuid(imageIdBase64 as string)
 const datasetId = decodeBase64ToUuid(route.params.id as string)
 
+
+const selectedModel = ref<ModelType>('none')
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 const fabricCanvas = ref<FabricCanvas | null>(null)
 const drawingMode = ref<'none' | 'box' | 'segmentation'>('none')
 const isSaving = ref(false)
-const selectedClass = ref<string | null>(null)
+const selectedClass = ref<number | null>(null)
 const newClassName = ref('')
 const isAddingClass = ref(false)
 
@@ -231,23 +189,8 @@ const { mutate: insertClass } = useMutation(INSERT_CLASS_MUTATION)
 
 const image = computed(() => imageData.value?.image)
 const segmentations = computed(() => segmentationData.value?.labelSegmentations || [])
-const classes = computed(() => classesData.value?.classes || [] as Class[])
 
-// Format classes for USelect
-const classItems = computed(() => classes.value.map((cls: Class) => ({
-    label: cls.name,
-    value: cls.id,
-})))
-
-// Create a map of class ID to name
-const classIdToName = computed(() => {
-    const map = new Map<string, string>()
-    classes.value.forEach((cls: Class) => {
-        map.set(cls.id, cls.name)
-    })
-    return map
-})
-
+const { classItems, classIdToName } = useClassOptions(classesData)
 
 
 const wrappedRefetchSegmentations = async () => {
@@ -425,6 +368,7 @@ const saveCurrentModifications = async () => {
 }
 
 const createNewClass = async () => {
+    console.log("createNewClass", newClassName.value)
     if (!newClassName.value) return
     
     isAddingClass.value = true

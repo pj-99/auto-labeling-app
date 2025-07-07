@@ -6,7 +6,7 @@ import { gql } from 'graphql-tag'
 import { useMutation } from '@vue/apollo-composable'
 export interface LabelDetection {
     id?: string
-    classId: string
+    classId: number
     xCenter: number
     yCenter: number
     width: number
@@ -17,7 +17,7 @@ interface UpsertLabelDetectionSuccess {
     __typename: 'UpsertLabelDetectionSuccess'
     labels: Array<{
         id: string
-        classId: string
+        classId: number
         xCenter: number
         yCenter: number
         width: number
@@ -38,7 +38,7 @@ type UpsertLabelResult = {
 export interface CustomRect extends Rect {
     data?: {
         labelId: string
-        classId: string
+        classId: number
     }
 }
 
@@ -90,7 +90,7 @@ export const useLabel = (
     datasetId: string,
     imageId: string,
     onLabelUpdate?: () => Promise<void>,
-    selectedClassId?: Ref<string | null>,
+    selectedClassId?: Ref<number | null>,
 ) => {
     const currentRect = ref<CustomRect | null>(null)
     const isDrawing = ref(false)
@@ -227,6 +227,7 @@ export const useLabel = (
     }
 
     const handleModification = async (rect: CustomRect): Promise<string | null> => {
+        console.log("handleModification", rect)
         if (!fabricCanvas.value) return null
 
         const canvasWidth = fabricCanvas.value.width!
@@ -249,6 +250,7 @@ export const useLabel = (
                 imageId,
                 labelDetections: [labelDetection]
             })
+            console.log("upsert result", result)
             if (!result || !result.data) return null
             if (result.data?.upsertLabelDetections.__typename === 'UpsertLabelDetectionSuccess') {
                 if (result.data.upsertLabelDetections.labels.length > 0) {
