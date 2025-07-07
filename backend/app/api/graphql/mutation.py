@@ -71,10 +71,19 @@ class Mutation:
         gcs_file_name: str,
         image_name: str,
         image_type: str,
+        width: int,
+        height: int,
     ) -> Image:
         db: AsyncIOMotorDatabase = await anext(get_db())
         return await insert_image_to_dataset(
-            db, user_id, dataset_id, gcs_file_name, image_name, image_type
+            db,
+            user_id,
+            dataset_id,
+            gcs_file_name,
+            image_name,
+            image_type,
+            width,
+            height,
         )
 
     @strawberry.mutation

@@ -11,5 +11,7 @@ class Image(BaseModel):
     image_type: str
     created_at: datetime = datetime.now()
     updated_at: datetime = datetime.now()
+    width: int | None = None
+    height: int | None = None
     caption: str = ""
     created_by: UUID
