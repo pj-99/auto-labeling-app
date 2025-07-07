@@ -4,7 +4,7 @@
         <div class="mx-auto flex gap-8">
             <!-- Left Sidebar -->
             <div class="w-48 shrink-0 flex flex-col gap-6 bg-white rounded-lg shadow-lg border border-gray-200 p-4 h-fit">
-                <UButton icon="i-heroicons-sparkles" color="neutral">
+                <UButton icon="i-heroicons-sparkles" color="neutral" @click="autoLabeling">
                     Auto Labeling
                 </UButton>
                 <div class="flex flex-col gap-2">
@@ -237,16 +237,15 @@ const { result: labelData, refetch: refetchLabels } = useQuery(LABEL_DETECTIONS_
     imageId
 })
 
-const { result: segmentationData, refetch: refetchSegmentations } = useQuery(LABEL_SEGMENTATIONS_QUERY, {
-    datasetId,
-    imageId
-})
 
 const { result: classesData, refetch: refetchClasses } = useQuery(CLASSES_QUERY, {
     datasetId
 })
 
 const { mutate: insertClass } = useMutation(INSERT_CLASS_MUTATION)
+
+
+const { mutate: predictSam } = useAutoLabelingMutation(SAMMutation)
 
 const image = computed(() => imageData.value?.image)
 const labels = computed(() => labelData.value?.labelDetections || [])
@@ -491,6 +490,16 @@ const createNewClass = async () => {
     } finally {
         isAddingClass.value = false
     }
+}
+
+
+const autoLabeling = async () => {
+    predictSam({
+        imageUrl: image.value?.imageUrl || '',
+        points: [[300, 300]],
+        labels: [1],
+    })
+    console.log("calling auto labeling API")
 }
 
 // Initialize canvas when component is mounted and watch for image changes
