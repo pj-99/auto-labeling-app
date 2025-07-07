@@ -4,34 +4,8 @@
         <div class="mx-auto flex gap-8">
             <!-- Left Sidebar -->
             <div class="w-48 shrink-0 flex flex-col gap-6 bg-white rounded-lg shadow-lg border border-gray-200 p-4 h-fit">
-                <UButton icon="i-heroicons-sparkles" color="neutral" @click="autoLabeling">
-                    Auto Labeling
-                </UButton>
-                <div class="flex flex-col gap-2">
-                    <UButton 
-                        icon="i-heroicons-square-2-stack" 
-                        :disabled="!selectedClass"
-                        :color="drawingMode === 'box' ? 'primary' : 'neutral'"
-                        @click="toggleDrawingMode(drawingMode === 'box' ? 'none' : 'box')"
-                    >
-                        {{ drawingMode === 'box' ? 'Exit Box Mode' : 'Draw Box' }}
-                        <template #trailing>
-                            <span v-if="!selectedClass" class="text-xs text-gray-500">(Select a class first)</span>
-                            <span v-else class="text-xs">
-                                {{ classItems.find((c: ClassItem) => c.value === selectedClass)?.label }}
-                            </span>
-                        </template>
-                    </UButton>
-                </div>
+                <AutoLabeling v-model="selectedModel" class="w-full" />
 
-                <UButton
-                    icon="i-heroicons-check-circle"
-                    color="primary"
-                    :loading="isSaving"
-                    @click="saveCurrentModifications"
-                >
-                    Save Changes
-                </UButton>
                 <!-- Class List -->
                 <div class="flex flex-col gap-2">
                     <h2 class="text-lg font-medium mb-2">Class Selector</h2>
@@ -74,6 +48,33 @@
                         />
                     </div>
                 </div>
+
+                <div class="flex flex-col gap-2">
+                    <UButton 
+                        icon="i-heroicons-square-2-stack" 
+                        :disabled="!selectedClass"
+                        :color="drawingMode === 'box' ? 'primary' : 'neutral'"
+                        @click="toggleDrawingMode(drawingMode === 'box' ? 'none' : 'box')"
+                    >
+                        {{ drawingMode === 'box' ? 'Exit Box Mode' : 'Draw Box' }}
+                        <template #trailing>
+                            <span v-if="!selectedClass" class="text-xs text-gray-500">(Select a class first)</span>
+                            <span v-else class="text-xs">
+                                {{ classItems.find((c: ClassItem) => c.value === selectedClass)?.label }}
+                            </span>
+                        </template>
+                    </UButton>
+                </div>
+
+                <UButton
+                    icon="i-heroicons-check-circle"
+                    color="primary"
+                    :loading="isSaving"
+                    @click="saveCurrentModifications"
+                >
+                    Save Changes
+                </UButton>
+                
                 <!-- Label List -->
                 <div class="flex flex-col gap-2">
                     <h2 class="text-lg font-medium mb-2">Label List</h2>
@@ -111,6 +112,13 @@
                     @mousedown="handleMouseDown"
                     @mousemove="handleMouseMove"
                     @mouseup="handleMouseUp">
+                    <!-- Loading Overlay for Auto-Labeling -->
+                    <div v-if="isAutoLabelLoading" class="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div class="bg-white rounded-lg p-4 flex flex-col items-center gap-2">
+                            <span class="text-sm font-medium">Auto-labeling...</span>
+                            <UProgress color="success" />
+                        </div>
+                    </div>
                     <canvas ref="canvasEl" class="absolute inset-0" />
                     <div v-if="!image" class="text-gray-400 flex flex-col items-center gap-2">
                         <UIcon name="i-heroicons-photo" class="w-16 h-16" />
@@ -137,6 +145,9 @@ import { Canvas as FabricCanvas, FabricImage } from 'fabric'
 import { useLabel } from '../../../../../composables/useLabel'
 import type { LabelDetection, CustomRect } from '../../../../../composables/useLabel'
 import type { Ref } from 'vue';
+import AutoLabeling from '../../../../../components/labeling/AutoLabeling.vue';
+import type { ModelType } from '../../../../../components/labeling/AutoLabeling.vue'
+import { toast } from '#build/ui';
 
 interface Class {
     id: string;
@@ -149,6 +160,8 @@ interface ClassItem {
     value: string;
     label: string;
 }
+
+const selectedModel = ref<ModelType>('none')
 
 
 const route = useRoute()
@@ -164,6 +177,7 @@ const isSaving = ref(false)
 const selectedClass = ref<string | null>(null)
 const newClassName = ref('')
 const isAddingClass = ref(false)
+const isAutoLabelLoading = ref(false)
 
 // TODO: Replace with actual user ID from auth system
 const userId = '123e4567-e89b-12d3-a456-426614174000'
@@ -174,6 +188,8 @@ const IMAGE_QUERY = gql`
       id
       imageName
       imageUrl
+      width
+      height
       createdAt
       updatedAt
       caption
@@ -195,15 +211,6 @@ const LABEL_DETECTIONS_QUERY = gql`
   }
 `
 
-const LABEL_SEGMENTATIONS_QUERY = gql`
-  query GetLabelSegmentations($datasetId: UUID!, $imageId: UUID!) {
-    labelSegmentations(datasetId: $datasetId, imageId: $imageId) {
-      id
-      classId
-      mask
-    }
-  }
-`
 
 const CLASSES_QUERY = gql`
   query GetClasses($datasetId: UUID!) {
@@ -247,6 +254,9 @@ const { mutate: insertClass } = useMutation(INSERT_CLASS_MUTATION)
 
 const { mutate: predictSam } = useAutoLabelingMutation(SAMMutation)
 
+const toast = useToast()
+
+
 const image = computed(() => imageData.value?.image)
 const labels = computed(() => labelData.value?.labelDetections || [])
 const classes = computed(() => classesData.value?.classes || [] as Class[])
@@ -280,7 +290,7 @@ const {
     handleModification: handleBoxModification,
     handleDeletion: handleBoxDeletion,
     isDrawing: isBoxDrawing,
-} = useLabel(fabricCanvas as Ref<FabricCanvas | null>, datasetId, imageId, wrappedRefetchLabels, selectedClass, getClassColor)
+} = useLabel(fabricCanvas as Ref<FabricCanvas | null>, datasetId, imageId, wrappedRefetchLabels, selectedClass)
 
 // Update drawing mode toggle
 const toggleDrawingMode = (mode: 'none' | 'box' | 'segmentation') => {
@@ -389,14 +399,12 @@ const initCanvas = async () => {
         addExistingBox(label)
     })
 
-    console.log("labelsdetections", labels.value)
 
     fabricCanvas.value.on('object:moving', (e) => {
         if (drawingMode.value != 'box') {
             return
         }
 
-        console.log("object:moving", e)
         const obj = e.target as CustomRect;
         // Bounded in canvas
         if (obj.left! < 0) {
@@ -419,7 +427,6 @@ const initCanvas = async () => {
 
         if ('width' in obj) {
             // It's a bounding box
-            console.log("object:modified bbox", obj)
             await handleBoxModification(obj as CustomRect)
         } 
     })
@@ -433,6 +440,19 @@ const initCanvas = async () => {
             await handleBoxDeletion(obj as CustomRect)
         } 
     })
+
+    fabricCanvas.value.on('mouse:down', async (e) => {
+        // Handle auto labeling methods
+        if (selectedModel.value === 'SAM') {
+            const x = Math.round(e.scenePoint.x)
+            const y = Math.round(e.scenePoint.y)
+            isAutoLabelLoading.value = true
+            await pointToBoxBySAM(x, y)
+            fabricCanvas.value!.renderAll()
+            isAutoLabelLoading.value = false
+        }
+    })
+    
 
     fabricCanvas.value.renderAll()
 }
@@ -493,13 +513,44 @@ const createNewClass = async () => {
 }
 
 
-const autoLabeling = async () => {
-    predictSam({
-        imageUrl: image.value?.imageUrl || '',
-        points: [[300, 300]],
+
+const pointToBoxBySAM = async (pointX: number, pointY: number) => {
+    if (!image.value) return
+
+    if (!selectedClass.value) {
+        toast.add({
+            title: 'Please select a class first',
+            color: 'error',
+        })
+        return
+    }
+
+    const result = await predictSam({
+        imageUrl: image.value.imageUrl,
+        points: [[pointX, pointY]],
         labels: [1],
     })
-    console.log("calling auto labeling API")
+    
+    if (!result) return
+
+    result.data?.predict.boxes.forEach(async (box: any) => {
+        const { xCenter, yCenter, width, height } = xyxyToXCenterYCenter(box.xyxy, image.value.width, image.value.height)
+        const label = addExistingBox({
+            classId: selectedClass.value || 'todo',
+            xCenter,
+            yCenter,
+            width,
+            height
+        })
+        if (label) {
+            const newLabelId = await handleBoxModification(label)
+            if (newLabelId && !label.data?.labelId ) {
+                label.data!.labelId = newLabelId
+            }
+        }
+    })
+
+    await wrappedRefetchLabels()
 }
 
 // Initialize canvas when component is mounted and watch for image changes
@@ -545,6 +596,17 @@ watch(() => image.value?.imageUrl, async (newUrl, oldUrl) => {
     }
 }, { immediate: true })
 
+
+// Watch for
+watch(selectedModel, (newModel) => {
+  if (newModel === 'SAM') {
+    // Handle SAM model selection
+    console.log('SAM model selected')
+  } else if (newModel === 'YOLO(coco)') {
+    // Handle YOLO model selection
+    console.log('YOLO model selected')
+  }
+})
 
 
 </script>

@@ -91,7 +91,6 @@ export const useLabel = (
     imageId: string,
     onLabelUpdate?: () => Promise<void>,
     selectedClassId?: Ref<string | null>,
-    getClassColor?: (classId: string) => string
 ) => {
     const currentRect = ref<CustomRect | null>(null)
     const isDrawing = ref(false)
@@ -206,8 +205,8 @@ export const useLabel = (
         isDrawing.value = false
     }
 
-    const addExistingLabel = (label: LabelDetection) => {
-        if (!fabricCanvas.value) return
+    const addExistingLabel = (label: LabelDetection): CustomRect | null => {
+        if (!fabricCanvas.value) return null
         const labelWidth = label.width * fabricCanvas.value.width!
         const labelHeight = label.height * fabricCanvas.value.height!
 
@@ -224,10 +223,11 @@ export const useLabel = (
 
         fabricCanvas.value.add(markRaw(rect))
         fabricCanvas.value.renderAll()
+        return rect
     }
 
-    const handleModification = async (rect: CustomRect) => {
-        if (!fabricCanvas.value) return
+    const handleModification = async (rect: CustomRect): Promise<string | null> => {
+        if (!fabricCanvas.value) return null
 
         const canvasWidth = fabricCanvas.value.width!
         const canvasHeight = fabricCanvas.value.height!
@@ -244,15 +244,22 @@ export const useLabel = (
         }
 
         try {
-            await upsertLabels({
+            const result = await upsertLabels({
                 datasetId,
                 imageId,
                 labelDetections: [labelDetection]
             })
+            if (!result || !result.data) return null
+            if (result.data?.upsertLabelDetections.__typename === 'UpsertLabelDetectionSuccess') {
+                if (result.data.upsertLabelDetections.labels.length > 0) {
+                    return result.data.upsertLabelDetections.labels[0].id
+                }
+            }
             await onLabelUpdate?.()
         } catch (error) {
             console.error('Failed to update label:', error)
         }
+        return null
     }
 
     const handleDeletion = async (rect: CustomRect) => {

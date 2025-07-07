@@ -85,7 +85,6 @@ export const useLabelSeg = (
     imageId: string,
     onLabelUpdate?: () => Promise<void>,
     selectedClassId?: Ref<string | null>,
-    getClassColor?: (classId: string) => string
 ) => {
     const currentPolygon = ref<CustomPolygon | null>(null)
     const isDrawing = ref(false)

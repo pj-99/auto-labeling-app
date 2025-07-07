@@ -264,7 +264,7 @@ const {
     handleDeletion: handleSegDeletion,
     handleKeyDown: handleSegKeyDown,
     isDrawing: isSegDrawing,
-} = useLabelSeg(fabricCanvas as Ref<FabricCanvas | null>, datasetId, imageId, wrappedRefetchSegmentations, selectedClass, getClassColor)
+} = useLabelSeg(fabricCanvas as Ref<FabricCanvas | null>, datasetId, imageId, wrappedRefetchSegmentations, selectedClass)
 
 // Update drawing mode toggle
 const toggleDrawingMode = (mode: 'none' | 'box' | 'segmentation') => {
@@ -354,15 +354,12 @@ const initCanvas = async () => {
     })
 
 
-    console.log("labels segmentations", segmentations.value)
     // Add existing segmentation labels
     segmentations.value.forEach((label: LabelSegmentation) => {
-        console.log("segementation Label mask", label.mask)
         addExistingSegmentation(label)
     })
 
     fabricCanvas.value.on('object:moving', (e) => {
-        console.log("object:moving", e)
         const obj = e.target as CustomPolygon;
         // Bounded in canvas
         if (obj.left! < 0) {
@@ -383,7 +380,6 @@ const initCanvas = async () => {
         const obj = e.target
         if (!obj || !('data' in obj)) return
 
-        console.log("object:modified seg", obj)
         await handleSegModification(obj as CustomPolygon)
     })
 
