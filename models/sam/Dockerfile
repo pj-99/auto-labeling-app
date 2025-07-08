@@ -1,9 +1,13 @@
 FROM python:3.12-slim
 
 # Install uv.
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.7.19 /uv /uvx /bin/
 
-RUN apt-get update && apt-get install -y libgl1-mesa-dev && apt-get install -y libglib2.0-0
+# https://github.com/ultralytics/ultralytics/issues/1270
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy the application into the container.
 COPY . /app

@@ -39,7 +39,7 @@ services:
     container_name: labeling-app-model-sam
     ports:
       - 8080:80
-    # The secret are stored in /run/secrets/$SECRET_NAME
+
 secrets:
   gcp_service_account:
     file: backend/app/gcp_service_account.json
