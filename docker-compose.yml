@@ -30,6 +30,24 @@ services:
       - GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp_service_account
     env_file:
       - backend/app/dev.env
+    volumes:
+      - ./backend/app:/app
+      - /app/.venv
+    # For dev env
+    command: /app/.venv/bin/fastapi run main.py --port 80 --host 0.0.0.0 --reload
+    develop:
+      watch:
+        # Sync the working directory with the `/app` directory in the container
+        - action: sync
+          path: .
+          target: backend/app
+          # Exclude the project virtual environment
+          ignore:
+            - .venv/
+
+        # Rebuild the image on changes to the `pyproject.toml`
+        - action: rebuild
+          path: ./pyproject.toml
 
   model-sam:
     image: labeling-app-model-sam-image
