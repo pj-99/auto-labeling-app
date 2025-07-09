@@ -21,7 +21,7 @@ const enabled = ref(false)
 
 const items = ref<ModelType[]>(['SAM', 'YOLO(coco)'])
 const descriptions = ref<Record<ModelType, string>>({
-  'SAM': 'Clicking a point to get a box prediction by SAM',
+  SAM: 'Clicking a point to get a box prediction by SAM',
   'YOLO(coco)': 'Automatically label the image by YOLO(coco)',
 })
 
@@ -43,18 +43,18 @@ const handleToggle = (val: boolean) => {
       <h2 class="text-lg font-medium">Auto Labeling</h2>
       <USwitch :model-value="enabled" @update:model-value="handleToggle" />
     </div>
-    
+
     <div v-if="enabled" class="space-y-4 mt-4">
-      <USelect 
-        v-model="value" 
-        placeholder="Select model" 
-        icon="i-heroicons-sparkles" 
+      <USelect
+        v-model="value"
+        placeholder="Select model"
+        icon="i-heroicons-sparkles"
         :items="items"
         class="w-full"
       />
-      
-      <UButton 
-        v-if="value === 'YOLO(coco)'" 
+
+      <UButton
+        v-if="value === 'YOLO(coco)'"
         class="w-full"
         variant="solid"
         icon="i-heroicons-play"
@@ -63,7 +63,10 @@ const handleToggle = (val: boolean) => {
         Run
       </UButton>
 
-      <p v-if="value && descriptions[value]" class="text-sm text-muted-foreground">
+      <p
+        v-if="value && descriptions[value]"
+        class="text-sm text-muted-foreground"
+      >
         {{ descriptions[value] }}
       </p>
     </div>

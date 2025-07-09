@@ -1,15 +1,15 @@
 <template>
-  <UApp  :toaster="{ position: 'bottom-center' }">
+  <UApp :toaster="{ position: 'bottom-center' }">
     <NuxtLayout>
-        <NuxtPage />
+      <NuxtPage />
     </NuxtLayout>
   </UApp>
 </template>
 
 <script setup lang="ts">
-import { loadErrorMessages, loadDevMessages } from "@apollo/client/dev";
+import { loadErrorMessages, loadDevMessages } from '@apollo/client/dev'
 
 // TODO
-loadDevMessages();
-loadErrorMessages();
+loadDevMessages()
+loadErrorMessages()
 </script>
