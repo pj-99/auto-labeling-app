@@ -49,12 +49,12 @@ services:
         - action: rebuild
           path: ./pyproject.toml
 
-  model-sam:
-    image: labeling-app-model-sam-image
+  models-gateway:
+    image: labeling-app-model-gateway-image
     build:
-      context: models/sam
+      context: models/gateway
       dockerfile: Dockerfile
-    container_name: labeling-app-model-sam
+    container_name: labeling-app-models-gateway
     ports:
       - 8080:80
     # For dev env
@@ -64,7 +64,7 @@ services:
         # Sync the working directory with the `/app` directory in the container
         - action: sync
           path: .
-          target: models/sam
+          target: models/gateway
           # Exclude the project virtual environment
           ignore:
             - .venv/
@@ -72,6 +72,18 @@ services:
         # Rebuild the image on changes to the `pyproject.toml`
         - action: rebuild
           path: ./pyproject.toml
+    volumes:
+      - ./models/gateway:/app
+      - /app/.venv
+
+  nats:
+    image: nats:latest
+    container_name: labeling-app-nats
+    ports:
+      - 4222:4222
+      - 8222:8222
+    volumes:
+      - ./data/nats:/data/nats
 
 secrets:
   gcp_service_account:

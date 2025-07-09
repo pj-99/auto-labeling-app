@@ -1,73 +1,56 @@
-from typing import List
+import asyncio
+import json
+import os
+import signal
 
-import strawberry
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+import nats
+from events import SAMPredictEvent
+from nats.aio.client import Client
 from predictor import InferenceAPI
-from strawberry.fastapi import GraphQLRouter
 
+servers = os.environ.get("NATS_URL", "nats://localhost:4222").split(",")
 inference_api = InferenceAPI()
 
 
-@strawberry.type
-class Box:
-    xyxy: List[float]
+async def main():
+    nc: Client = await nats.connect(servers)
 
+    async def predict_handler(msg):
+        event = SAMPredictEvent.model_validate_json(msg.data)
+        print("Received event:")
+        print(event)
 
-@strawberry.type
-class Mask:
-    xy: List[List[float]]
+        results = inference_api.predict(event.image_url, event.points, event.labels)
 
-
-@strawberry.type
-class PredictResult:
-    boxes: List[Box]
-    masks: List[Mask]
-
-
-@strawberry.type
-class Mutation:
-    @strawberry.mutation
-    def predict(
-        self, image_url: str, points: List[List[List[int]]], labels: List[List[int]]
-    ) -> PredictResult:
-        results = inference_api.predict(image_url, points, labels)
         if len(results) == 0:
             raise Exception("No results found")
+
         result = results[0]
 
-        return PredictResult(
-            boxes=[Box(xyxy=box.xyxy.flatten().tolist()) for box in result.boxes],
-            masks=[
-                Mask(xy=coords.tolist())
-                for result in results
-                for coords in result.masks.xy
+        reply = {
+            "boxes": [box.xyxy.flatten().tolist() for box in result.boxes],
+            "masks": [
+                coords.tolist() for result in results for coords in result.masks.xy
             ],
-        )
+        }
+        await msg.respond(json.dumps(reply).encode("utf-8"))
+
+    sub = await nc.subscribe("sam.predict", cb=predict_handler)
+
+    await nc.flush()
+
+    stop_event = asyncio.Event()
+
+    def signal_handler():
+        print("SIGINT or SIGTERM received")
+        stop_event.set()
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(sig, signal_handler)
+
+    await stop_event.wait()
+    await nc.drain()
 
 
-@strawberry.type
-class Query:
-    @strawberry.field
-    def hello(self) -> str:
-        return "Hello, World!"
-
-
-app = FastAPI()
-
-
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend URL
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
-)
-
-
-schema = strawberry.Schema(query=Query, mutation=Mutation)
-
-graphql_app = GraphQLRouter(schema=schema)
-
-app.include_router(graphql_app, prefix="/graphql")
+if __name__ == "__main__":
+    asyncio.run(main())
