@@ -3,7 +3,7 @@
         <!-- Main Content -->
         <div class="mx-auto flex gap-8">
             <!-- Left Sidebar -->
-            <div class="w-48 shrink-0 flex flex-col gap-6 bg-white rounded-lg shadow-lg border border-gray-200 p-4 h-fit">
+            <div class="w-48 shrink-0 flex flex-col gap-6 rounded-lg shadow-lg border p-4 h-fit">
                 <AutoLabeling v-model="selectedModel" class="w-full" />
 
 
@@ -45,7 +45,7 @@
                         </div>
                         <div
                             v-for="label in labels" :key="label.id" 
-                            class="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100">
+                            class="flex items-center justify-between p-2  rounded-lg">
                             <div class="flex items-center gap-2">
                                 <div 
                                     class="w-2 h-2 rounded-full" 
@@ -69,19 +69,19 @@
             <div class="flex-1 min-h-[calc(100vh-8rem)] flex flex-col">
                 <!-- Image Container -->
                 <div
-                    class="relative flex-1 border-2 border-gray-300 rounded-lg bg-gray-50 flex items-center justify-center overflow-hidden"
+                    class="relative flex-1 border-2 rounded-lg flex items-center justify-center overflow-hidden"
                     @mousedown="handleMouseDown"
                     @mousemove="handleMouseMove"
                     @mouseup="handleMouseUp">
                     <!-- Loading Overlay for Auto-Labeling -->
                     <div v-if="isAutoLabelLoading" class="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
-                        <div class="bg-white rounded-lg p-4 flex flex-col items-center gap-2">
+                        <div class=" rounded-lg p-4 flex flex-col items-center gap-2">
                             <span class="text-sm font-medium">Auto-labeling...</span>
                             <UProgress color="success" />
                         </div>
                     </div>
                     <canvas ref="canvasEl" class="absolute inset-0" />
-                    <div v-if="!image" class="text-gray-400 flex flex-col items-center gap-2">
+                    <div v-if="!image" class=" flex flex-col items-center gap-2">
                         <UIcon name="i-heroicons-photo" class="w-16 h-16" />
                         <span>No image selected</span>
                     </div>
@@ -90,7 +90,7 @@
                 <!-- Image Info -->
                 <div class="mt-4">
                     <h3 class="text-lg font-medium">{{ image?.imageName || 'Mountain View' }}</h3>
-                    <div class="h-0.5 w-24 bg-gray-300 mt-2"/>
+                    <div class="h-0.5 w-24 mt-2"/>
                 </div>
             </div>
         </div>

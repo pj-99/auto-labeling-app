@@ -5,14 +5,14 @@
       <div class="mb-8">
       <div class="flex items-center gap-3 mb-2">
         <div class="flex items-baseline gap-2">
-          <h1 class="text-2xl font-semibold text-gray-900">
+          <h1 class="text-2xl font-semibold">
           {{ dataset?.name }}
           </h1>
         <DatasetBadge :training-type="dataset?.trainingType" />
         </div>
 
       </div>
-      <p class="text-gray-600">Upload and manage images in this dataset</p>
+      <p class="text-muted">Upload and manage images in this dataset</p>
         <div class="mt-2 flex items-center gap-2">
           <UBadge variant="soft" size="md">{{ dataset?.images?.length || 0 }} images</UBadge>
           <UBadge variant="outline" size="md">Created {{ formatDate(dataset?.createdAt) }}</UBadge>
@@ -21,12 +21,12 @@
     <!-- Upload Section -->
     <div class="mb-12">
       <h2 class="text-xl font-medium mb-4">Upload Images</h2>
-      <div class="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-8">
+      <div class="border-2 border-dashed rounded-lg p-8">
         <div class="text-center">
           <UIcon name="i-heroicons-cloud-arrow-up" class="mx-auto h-12 w-12 text-gray-400" />
           <div class="mt-4">
             <h3 class="text-lg font-semibold">Drop Files Here</h3>
-            <p class="mt-1 text-sm text-gray-500">
+            <p class="mt-1 text-sm ">
               Drag and drop your images here, or click to select files
             </p>
           </div>
