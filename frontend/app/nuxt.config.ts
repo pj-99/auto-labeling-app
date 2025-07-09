@@ -7,13 +7,13 @@ export default defineNuxtConfig({
     '@nuxt/eslint',
     '@nuxt/icon',
     '@nuxt/image',
-    '@nuxtjs/apollo'
+    '@nuxtjs/apollo',
   ],
 
   css: ['~/assets/css/main.css'],
 
   future: {
-    compatibilityVersion: 4
+    compatibilityVersion: 4,
   },
 
   compatibilityDate: '2024-11-27',
@@ -21,18 +21,17 @@ export default defineNuxtConfig({
   apollo: {
     clients: {
       default: {
-        httpEndpoint: 'http://localhost:8000/graphql'
+        httpEndpoint: 'http://localhost:8000/graphql',
       },
       autoLabeling: {
-        httpEndpoint: 'http://localhost:8080/graphql'
-      }
-    }
+        httpEndpoint: 'http://localhost:8080/graphql',
+      },
+    },
   },
 
   runtimeConfig: {
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000'
-    }
-  }
-
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000',
+    },
+  },
 })
