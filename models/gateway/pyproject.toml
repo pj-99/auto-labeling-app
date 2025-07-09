@@ -1,5 +1,5 @@
 [project]
-name = "gateway"
+name = "sam"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -8,5 +8,4 @@ dependencies = [
     "fastapi[standard]>=0.115.14",
     "nats-py>=2.10.0",
     "strawberry-graphql[fastapi]>=0.275.5",
-    "ultralytics>=8.3.162",
 ]
