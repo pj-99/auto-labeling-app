@@ -274,6 +274,25 @@ wheels = [
 ]
 
 [[package]]
+name = "gateway"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "fastapi", extra = ["standard"] },
+    { name = "nats-py" },
+    { name = "strawberry-graphql", extra = ["fastapi"] },
+    { name = "ultralytics" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", extras = ["standard"], specifier = ">=0.115.14" },
+    { name = "nats-py", specifier = ">=2.10.0" },
+    { name = "strawberry-graphql", extras = ["fastapi"], specifier = ">=0.275.5" },
+    { name = "ultralytics", specifier = ">=8.3.162" },
+]
+
+[[package]]
 name = "graphql-core"
 version = "3.2.6"
 source = { registry = "https://pypi.org/simple" }
@@ -1088,25 +1107,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/c9/f7/9381bf8e2a6de459a0423dc5bf6435440ed05c99ec14b95fee4ac94a823b/rignore-0.5.1-cp313-cp313t-musllinux_1_2_armv7l.whl", hash = "sha256:ec9ce7fe282e819f9a9a2305676cd90610d9ed053563467f2ddd8090e7acebb9", size = 1142309, upload-time = "2025-04-16T11:35:27.389Z" },
     { url = "https://files.pythonhosted.org/packages/3e/18/28c08d1d722f17e8338aeeef444fe7eacb1ade9b1c56f9b14802d1e565ec/rignore-0.5.1-cp313-cp313t-musllinux_1_2_i686.whl", hash = "sha256:733af4ef28c55843e06ab09532d5883d1e15e96af3868f68dcc14b9689e5dd36", size = 1115161, upload-time = "2025-04-16T11:35:40.431Z" },
     { url = "https://files.pythonhosted.org/packages/3d/af/c3c7901534b06c2fb31b3ceb0dee46dc768fba2d03af39c9d6b97db2d7d3/rignore-0.5.1-cp313-cp313t-musllinux_1_2_x86_64.whl", hash = "sha256:763e36b91607d012d529cdbd45ab6268166d6834dda4d9c931efe0fd93e01a7f", size = 1129705, upload-time = "2025-04-16T11:35:52.716Z" },
-]
-
-[[package]]
-name = "sam"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "fastapi", extra = ["standard"] },
-    { name = "nats-py" },
-    { name = "strawberry-graphql", extra = ["fastapi"] },
-    { name = "ultralytics" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "fastapi", extras = ["standard"], specifier = ">=0.115.14" },
-    { name = "nats-py", specifier = ">=2.10.0" },
-    { name = "strawberry-graphql", extras = ["fastapi"], specifier = ">=0.275.5" },
-    { name = "ultralytics", specifier = ">=8.3.162" },
 ]
 
 [[package]]
