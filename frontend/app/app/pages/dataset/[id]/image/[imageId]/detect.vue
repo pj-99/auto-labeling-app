@@ -387,14 +387,14 @@ const pointToBoxBySAM = async (pointX: number, pointY: number) => {
 
   const result = await predictSam({
     imageUrl: image.value.imageUrl,
-    points: [[pointX, pointY]],
-    labels: [1],
+    points: [[[pointX, pointY]]],
+    labels: [[1]],
   })
 
   console.log('result', result)
   if (!result) return
 
-  for (const box of result.data?.predict.boxes || []) {
+  for (const box of result.data?.predictSAM.boxes || []) {
     const { xCenter, yCenter, width, height } = xyxyToXCenterYCenter(
       box.xyxy,
       image.value.width,

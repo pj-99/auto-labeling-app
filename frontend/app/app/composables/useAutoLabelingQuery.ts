@@ -12,10 +12,10 @@ export const useAutoLabelingMutation = (mutation: any, options = {}) => {
 export const SAMMutation = gql`
   mutation SAMMutation(
     $imageUrl: String!
-    $points: [[Int!]!]!
-    $labels: [Int!]!
+    $points: [[[Int!]!]!]!
+    $labels: [[Int!]!]!
   ) {
-    predict(imageUrl: $imageUrl, points: $points, labels: $labels) {
+    predictSAM(imageUrl: $imageUrl, points: $points, labels: $labels) {
       boxes {
         xyxy
       }

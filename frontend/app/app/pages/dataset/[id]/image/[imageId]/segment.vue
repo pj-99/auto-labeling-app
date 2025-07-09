@@ -481,13 +481,13 @@ const pointToSegBySAM = async (pointX: number, pointY: number) => {
 
   const result = await predictSam({
     imageUrl: image.value.imageUrl,
-    points: [[pointX, pointY]],
-    labels: [1],
+    points: [[[pointX, pointY]]],
+    labels: [[1]],
   })
 
   if (!result) return
 
-  for (const mask of result.data?.predict.masks || []) {
+  for (const mask of result.data?.predictSAM.masks || []) {
     const points = mask.xy.map((point: number[]) => ({
       x: point[0],
       y: point[1],
