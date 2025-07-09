@@ -15,40 +15,34 @@ inference_api = InferenceAPI()
 async def main():
     nc: Client = await nats.connect(servers)
 
-    async def predict_handler(msg):
+    sub = await nc.subscribe("sam.predict")
+
+    # Handle incoming messages
+    async for msg in sub.messages:
         event = SAMPredictEvent.model_validate_json(msg.data)
         print("Received event:")
         print(event)
 
-        results = inference_api.predict(event.image_url, event.points, event.labels)
+        results = inference_api.predict([event.image_url], event.points, event.labels)
 
-        if len(results) == 0:
-            raise Exception("No results found")
-
-        result = results[0]
-
+        boxes = []
+        masks = []
+        for result in results:
+            if result.boxes is not None:
+                boxes.append(result.boxes.xyxy.flatten().tolist())
+            if result.masks is not None:
+                curMask = []
+                for segs in result.masks.xy:
+                    for coords in segs:
+                        curMask.append(coords.flatten().tolist())
+                masks.append(curMask)
         reply = {
-            "boxes": [box.xyxy.flatten().tolist() for box in result.boxes],
-            "masks": [
-                coords.tolist() for result in results for coords in result.masks.xy
-            ],
+            "boxes": boxes,
+            "masks": masks,
         }
+
         await msg.respond(json.dumps(reply).encode("utf-8"))
 
-    sub = await nc.subscribe("sam.predict", cb=predict_handler)
-
-    await nc.flush()
-
-    stop_event = asyncio.Event()
-
-    def signal_handler():
-        print("SIGINT or SIGTERM received")
-        stop_event.set()
-
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        signal.signal(sig, signal_handler)
-
-    await stop_event.wait()
     await nc.drain()
 
 

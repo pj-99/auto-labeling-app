@@ -44,11 +44,10 @@ class Mutation:
         )
 
         result = json.loads(resp.data.decode("utf-8"))
-        print(result)
 
         return PredictResult(
-            boxes=[result["boxes"]],
-            masks=[result["masks"]],
+            boxes=[Box(xyxy=box) for box in result["boxes"]],
+            masks=[Mask(xy=mask) for mask in result["masks"]],
         )
 
 
