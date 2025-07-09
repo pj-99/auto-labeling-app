@@ -1,3 +1,5 @@
+from typing import List
+
 from ultralytics import SAM
 from ultralytics.engine.results import Results
 
@@ -9,7 +11,7 @@ class InferenceAPI:
         print(self.model.info())
 
     def predict(
-        self, image_path: str, points: list[list[int]], labels: list[int]
+        self, image_path: str, points: List[List[List[int]]], labels: List[List[int]]
     ) -> Results:
         results = self.model.predict(
             image_path,

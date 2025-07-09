@@ -57,6 +57,21 @@ services:
     container_name: labeling-app-model-sam
     ports:
       - 8080:80
+    # For dev env
+    command: /app/.venv/bin/fastapi run main.py --port 80 --host 0.0.0.0 --reload
+    develop:
+      watch:
+        # Sync the working directory with the `/app` directory in the container
+        - action: sync
+          path: .
+          target: models/sam
+          # Exclude the project virtual environment
+          ignore:
+            - .venv/
+
+        # Rebuild the image on changes to the `pyproject.toml`
+        - action: rebuild
+          path: ./pyproject.toml
 
 secrets:
   gcp_service_account:

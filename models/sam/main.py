@@ -29,7 +29,7 @@ class PredictResult:
 class Mutation:
     @strawberry.mutation
     def predict(
-        self, image_url: str, points: List[List[int]], labels: List[int]
+        self, image_url: str, points: List[List[List[int]]], labels: List[List[int]]
     ) -> PredictResult:
         results = inference_api.predict(image_url, points, labels)
         if len(results) == 0:
