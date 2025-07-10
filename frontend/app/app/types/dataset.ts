@@ -1,3 +1,5 @@
+import type { Image } from './image'
+
 export enum DatasetTrainingType {
     DETECT = 'DETECT',
     SEGMENT = 'SEGMENT'

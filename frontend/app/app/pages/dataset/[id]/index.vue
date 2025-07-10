@@ -105,7 +105,6 @@ const getSignedUrl = async (contentType: string) => {
   const {
     public: { apiBase },
   } = useRuntimeConfig()
-  console.log('API base:', apiBase)
 
   try {
     const response = await fetch(`${apiBase}/generate-signed-url`, {
