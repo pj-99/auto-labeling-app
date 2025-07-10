@@ -25,3 +25,4 @@ class ImagePredictEvent(BaseModel):
     """
 
     image_id: UUID
+    job_id: UUID

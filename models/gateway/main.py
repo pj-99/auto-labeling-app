@@ -6,7 +6,7 @@ from uuid import UUID
 
 import strawberry
 from crud import create_job
-from events import DatasetPredictEvent, SAMPredictEvent
+from events import DatasetPredictEvent, ImagePredictEvent, SAMPredictEvent
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from model.auto_label_job import AutoLabelModel
@@ -74,30 +74,66 @@ class Mutation:
     async def predictYoloOnDataset(
         self, dataset_id: UUID, user_id: UUID
     ) -> PredictJobResponse:
+        return await sendPredictJob(
+            dataset_id=dataset_id,
+            user_id=user_id,
+            model=AutoLabelModel.YOLO_WORLD,
+        )
 
-        # Create job in db
-        try:
-            job_id = await create_job(
-                user_id, AutoLabelModel.YOLO_WORLD, dataset_id=dataset_id
-            )
-        except Exception as e:
-            print(e)
-            return PredictJobError(message="Job cannot be created")
+    @strawberry.mutation
+    async def predictYoloOnImage(
+        self, image_id: UUID, user_id: UUID
+    ) -> PredictJobResponse:
+        return await sendPredictJob(
+            image_id=image_id,
+            user_id=user_id,
+            model=AutoLabelModel.YOLO_WORLD,
+        )
 
-        # Send thejob to broker
-        try:
+
+async def sendPredictJob(
+    user_id: UUID,
+    model: AutoLabelModel,
+    image_id: UUID = None,
+    dataset_id: UUID = None,
+):
+    # Create the job in db
+    try:
+        job_id = await create_job(user_id, model, dataset_id=dataset_id)
+    except Exception as e:
+        print(e)
+        return PredictJobError(message="Job cannot be created")
+
+    # Set predict type that will be used in topic
+    predic_type = "image" if image_id else "dataset"
+
+    # Set method string that will be used in topic
+    method = "yolo" if model == AutoLabelModel.YOLO_WORLD else "sam"
+
+    # Send the job to broker
+    try:
+        if predic_type == "dataset":
+            # Predict on the whole dataset
             await nats_client.publish(
-                "predict.dataset.yolo",
+                f"predict.{predic_type}.{method}",
                 DatasetPredictEvent(dataset_id=dataset_id, job_id=job_id)
                 .model_dump_json()
                 .encode(),
             )
-        except Exception as e:
-            print(e)
-            # TODO: retry?
-            return PredictJobError(message="Job cannot be sent to worker")
+        else:
+            # Predict on the single image
+            await nats_client.publish(
+                f"predict.{predic_type}.{method}",
+                ImagePredictEvent(image_id=image_id, job_id=job_id)
+                .model_dump_json()
+                .encode(),
+            )
+    except Exception as e:
+        print(e)
+        # TODO: retry?
+        return PredictJobError(message="Job cannot be sent to worker")
 
-        return PredictJobCreatedSuccess(job_id=job_id)
+    return PredictJobCreatedSuccess(job_id=job_id)
 
 
 @strawberry.type

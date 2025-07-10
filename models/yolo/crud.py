@@ -1,5 +1,5 @@
 import os
-import uuid
+from datetime import datetime
 from typing import List
 from uuid import UUID
 
@@ -50,10 +50,14 @@ async def insert_label_detections(labels: List[LabelDetectionByYOLO]):
 async def set_job_done(job_id: UUID):
     database = client.get_database("app")
     collection = database["autolabel_jobs"]
-    await collection.find_one_and_update({"id": job_id}, {"$set": {"status": "done"}})
+    await collection.find_one_and_update(
+        {"id": job_id}, {"$set": {"status": "done", "updated_at": datetime.now()}}
+    )
 
 
 async def set_job_failed(job_id: UUID):
     database = client.get_database("app")
     collection = database["autolabel_jobs"]
-    await collection.find_one_and_update({"id": job_id}, {"$set": {"status": "failed"}})
+    await collection.find_one_and_update(
+        {"id": job_id}, {"$set": {"status": "failed", "updated_at": datetime.now()}}
+    )

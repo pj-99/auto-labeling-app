@@ -1,5 +1,6 @@
 import os
 import uuid
+from datetime import datetime
 from typing import Union
 from uuid import UUID, uuid4
 
@@ -24,6 +25,8 @@ async def create_job(
         "user_id": user_id,
         "status": JobStatus.CREATED.value,
         "model": model.value,
+        "created_at": datetime.now(),
+        "updated_at": datetime.now(),
     }
 
     if dataset_id:

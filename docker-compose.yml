@@ -91,7 +91,7 @@ services:
     build:
       context: models/yolo
       dockerfile: Dockerfile
-    container_name: labeling-app-yolo-sam
+    container_name: labeling-app-models-yolo
     depends_on:
       - nats
     environment:
