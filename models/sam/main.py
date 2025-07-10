@@ -15,7 +15,7 @@ inference_api = InferenceAPI()
 async def main():
     nc: Client = await nats.connect(servers)
 
-    sub = await nc.subscribe("sam.predict")
+    sub = await nc.subscribe("predict.image.sam")
 
     # Handle incoming messages
     async for msg in sub.messages:

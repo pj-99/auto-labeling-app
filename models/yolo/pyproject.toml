@@ -1,0 +1,19 @@
+[project]
+name = "yolo"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "clip",
+    "ftfy>=6.3.1",
+    "nats-py>=2.10.0",
+    "pydantic>=2.11.7",
+    "pymongo>=4.13.2",
+    "regex>=2024.11.6",
+    "tqdm>=4.67.1",
+    "ultralytics>=8.3.163",
+]
+
+[tool.uv.sources]
+clip = { git = "https://github.com/openai/CLIP.git", rev = "dcba3cb2e2827b402d2701e7e1c7d9fed8a20ef1" }

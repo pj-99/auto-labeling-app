@@ -1,11 +1,15 @@
+import enum
 import json
 from contextlib import asynccontextmanager
-from typing import List
+from typing import Annotated, List, Union
+from uuid import UUID
 
 import strawberry
-from events import SAMPredictEvent
+from crud import create_job
+from events import DatasetPredictEvent, SAMPredictEvent
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from model.auto_label_job import AutoLabelModel
 from mq import create_nats_client
 from nats.aio.client import Client
 from strawberry.fastapi import GraphQLRouter
@@ -30,13 +34,29 @@ class PredictResult:
 
 
 @strawberry.type
+class PredictJobCreatedSuccess:
+    job_id: UUID
+
+
+@strawberry.type
+class PredictJobError:
+    message: str
+
+
+PredictJobResponse = Annotated[
+    Union[PredictJobCreatedSuccess, PredictJobError],
+    strawberry.union("PredictResponse"),
+]
+
+
+@strawberry.type
 class Mutation:
     @strawberry.mutation
     async def predictSAM(
         self, image_url: str, points: List[List[List[int]]], labels: List[List[int]]
     ) -> PredictResult:
         resp = await nats_client.request(
-            "sam.predict",
+            "predict.image.sam",
             SAMPredictEvent(image_url=image_url, points=points, labels=labels)
             .model_dump_json()
             .encode(),
@@ -49,6 +69,35 @@ class Mutation:
             boxes=[Box(xyxy=box) for box in result["boxes"]],
             masks=[Mask(xy=mask) for mask in result["masks"]],
         )
+
+    @strawberry.mutation
+    async def predictYoloOnDataset(
+        self, dataset_id: UUID, user_id: UUID
+    ) -> PredictJobResponse:
+
+        # Create job in db
+        try:
+            job_id = await create_job(
+                user_id, AutoLabelModel.YOLO_WORLD, dataset_id=dataset_id
+            )
+        except Exception as e:
+            print(e)
+            return PredictJobError(message="Job cannot be created")
+
+        # Send thejob to broker
+        try:
+            await nats_client.publish(
+                "predict.dataset.yolo",
+                DatasetPredictEvent(dataset_id=dataset_id, job_id=job_id)
+                .model_dump_json()
+                .encode(),
+            )
+        except Exception as e:
+            print(e)
+            # TODO: retry?
+            return PredictJobError(message="Job cannot be sent to worker")
+
+        return PredictJobCreatedSuccess(job_id=job_id)
 
 
 @strawberry.type
