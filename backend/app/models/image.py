@@ -10,7 +10,7 @@ class Image(BaseModel):
     image_url: str
     image_type: str
     created_at: datetime = datetime.now()
-    updated_at: datetime = datetime.now()
+    updated_at: datetime = datetime.now()  # TODO: check
     width: int | None = None
     height: int | None = None
     caption: str = ""
