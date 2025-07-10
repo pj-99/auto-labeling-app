@@ -1,3 +1,4 @@
+import asyncio
 import os
 from datetime import datetime
 from typing import List
@@ -9,36 +10,53 @@ from pymongo import AsyncMongoClient
 client = AsyncMongoClient(os.getenv("MONGO_URL"), uuidRepresentation="standard")
 
 
-async def get_dataset_class_name_to_id(dataset_id: UUID):
+async def get_dataset_info(dataset_id: UUID):
     """Get the dataset's class name to id map
 
     Args:
         dataset_id (UUID)
 
     Returns:
-        classes(dict): key is the class name, value is class id in DB
+        tuple: (class_name_to_id(dict), image_urls(list), image_ids(list))
     """
     database = client.get_database("app")
-    collection = database["datasets"]
-    dataset = await collection.find_one({"id": dataset_id}, {"classes": 1, "_id": 0})
-    classes = {item["name"]: item["id"] for item in dataset["classes"]}
-    return classes
+    pipeline = [
+        {"$match": {"id": dataset_id}},
+        # Join with collection of images
+        {
+            "$lookup": {
+                "from": "images",
+                "localField": "images",
+                "foreignField": "id",
+                "as": "image_mapping",
+            },
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "classes": 1,
+                "images": 1,
+                "image_mapping.id": 1,
+                "image_mapping.image_url": 1,
+            }
+        },
+    ]
+    result = await database["datasets"].aggregate(pipeline=pipeline)
+    result = await result.to_list(1)
 
+    if not result or len(result) == 0:
+        raise ValueError(f"Dataset {dataset_id} not found")
 
-async def get_image_urls_and_ids(dataset_id: UUID):
-    database = client.get_database("app")
-    dataset = await database["datasets"].find_one(
-        {"id": dataset_id}, {"_id": 0, "images": 1}
-    )
-    image_ids = dataset["images"]
-    images = (
-        await database["images"]
-        .find({"id": {"$in": image_ids}}, {"image_url": 1, "_id": 0})
-        .to_list()
-    )
+    dataset_data = result[0]
 
-    image_urls = [image["image_url"] for image in images]
-    return image_urls, image_ids
+    class_name_to_id = {item["name"]: item["id"] for item in dataset_data["classes"]}
+
+    image_id_to_url = {
+        img["id"]: img["image_url"] for img in dataset_data["image_mapping"]
+    }
+    image_ids = dataset_data["images"]
+    image_urls = [image_id_to_url[image_id] for image_id in image_ids]
+    return class_name_to_id, image_urls, image_ids
 
 
 async def insert_label_detections(labels: List[LabelDetectionByYOLO]):

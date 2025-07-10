@@ -3,13 +3,7 @@ from datetime import datetime
 from typing import List
 from uuid import UUID, uuid4
 
-from crud import (
-    get_dataset_class_name_to_id,
-    get_image_urls_and_ids,
-    insert_label_detections,
-    set_job_done,
-    set_job_failed,
-)
+from crud import get_dataset_info, insert_label_detections, set_job_done, set_job_failed
 from data_types import LabelDetectionByYOLO
 from predictor import InferenceAPI
 
@@ -19,10 +13,8 @@ async def handle_predict_dataset(dataset_id: UUID, job_id: UUID):
     try:
         inference_api = InferenceAPI()
 
-        class_name_to_id = await get_dataset_class_name_to_id(dataset_id)
+        class_name_to_id, image_urls, image_ids = await get_dataset_info(dataset_id)
         classes = list(class_name_to_id.keys())
-        image_urls, image_ids = await get_image_urls_and_ids(dataset_id)
-
         results = inference_api.predict(image_urls, classes)
 
         labels: List[LabelDetectionByYOLO] = []
@@ -55,3 +47,7 @@ async def handle_predict_dataset(dataset_id: UUID, job_id: UUID):
         traceback.print_exc()
         print(f"Job: {job_id} is failed, {e}")
         await set_job_failed(job_id=job_id)
+
+
+async def handle_predict_image(image_id: UUID, job_id: UUID):
+    return
