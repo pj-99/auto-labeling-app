@@ -151,7 +151,7 @@ async def insert_class(db: AsyncIOMotorDatabase, dataset_id: UUID, name: str) ->
 
     dataset = await db["datasets"].find_one({"id": dataset_id})
     classes = dataset.get("classes", [])
-    class_id = len(classes) + 1
+    class_id = len(classes)
     doc = {
         "id": class_id,
         "name": name,

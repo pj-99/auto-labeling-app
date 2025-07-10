@@ -1,9 +1,10 @@
 # Dependencies for the API
-import os
 from typing import AsyncGenerator
 
 from core.config import Settings
 from google.cloud import storage
+
+# TODO: replace with pymongo
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 settings = Settings()

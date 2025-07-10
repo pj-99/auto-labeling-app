@@ -1,13 +1,6 @@
-from typing import List
 from uuid import UUID
 
 from pydantic import BaseModel
-
-
-class SAMPredictEvent(BaseModel):
-    image_url: str
-    points: List[List[List[int]]]
-    labels: List[List[int]]
 
 
 class DatasetPredictEvent(BaseModel):
