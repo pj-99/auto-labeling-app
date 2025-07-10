@@ -4,18 +4,21 @@ import { useRoute } from 'vue-router'
 import { useQuery, useMutation } from '@vue/apollo-composable'
 import { gql } from 'graphql-tag'
 import { Canvas as FabricCanvas, FabricImage } from 'fabric'
-import { useLabel } from '../../../../../composables/useLabel'
+import { useLabel } from '~/composables/useLabel'
+import { useSAMBbox } from '~/composables/useSAMBox'
 import type {
   LabelDetection,
   CustomRect,
-} from '../../../../../composables/useLabel'
+} from '~/composables/useLabel'
 import type { Ref } from 'vue'
-import AutoLabeling from '../../../../../components/labeling/AutoLabeling.vue'
-import type { ModelType } from '../../../../../components/labeling/AutoLabeling.vue'
-import { useClassOptions } from '../../../../../composables/useCalssOptions'
-import ClassPanel from '../../../../../components/labeling/ClassPanel.vue'
-
-const selectedModel = ref<ModelType | 'none'>('none')
+import AutoLabeling from '~/components/labeling/AutoLabeling.vue'
+import type { ModelType } from '~/components/labeling/AutoLabeling.vue'
+import { useClassOptions } from '~/composables/useCalssOptions'
+import ClassPanel from '~/components/labeling/ClassPanel.vue'
+import {
+  useAutoLabelingMutation,
+  SAMMutation,
+} from '~/composables/useAutoLabelingQuery'
 
 const route = useRoute()
 
@@ -23,18 +26,22 @@ const imageIdBase64 = route.params.imageId
 const imageId = decodeBase64ToUuid(imageIdBase64 as string)
 const datasetId = decodeBase64ToUuid(route.params.id as string)
 
+const selectedModel = ref<ModelType | null>(null)
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 const fabricCanvas = ref<FabricCanvas | null>(null)
 const drawingMode = ref<'none' | 'box' | 'segmentation'>('none')
 const isSaving = ref(false)
-const selectedClass = ref<number | null>(null)
+const selectedClass = ref<number | undefined>(undefined)
 const newClassName = ref('')
 const isAddingClass = ref(false)
-const isAutoLabelLoading = ref(false)
+
+const { mutate: predictSam } = useAutoLabelingMutation(SAMMutation)
+const toast = useToast()
 
 // TODO: Replace with actual user ID from auth system
 const userId = '123e4567-e89b-12d3-a456-426614174000'
 
+// GraphQL Queries
 const IMAGE_QUERY = gql`
   query GetImage($userId: UUID!, $imageId: UUID!) {
     image(userId: $userId, imageId: $imageId) {
@@ -86,6 +93,7 @@ const INSERT_CLASS_MUTATION = gql`
   }
 `
 
+// Query hooks
 const { result: imageData } = useQuery(IMAGE_QUERY, {
   userId,
   imageId,
@@ -108,25 +116,18 @@ const { result: classesData, refetch: refetchClasses } = useQuery(
 
 const { mutate: insertClass } = useMutation(INSERT_CLASS_MUTATION)
 
-const { mutate: predictSam } = useAutoLabelingMutation(SAMMutation)
-
-const toast = useToast()
-
+// Computed properties
 const image = computed(() => imageData.value?.image)
-const labels = computed(() => {
-  console.log('labelData', labelData.value)
-  return labelData.value?.labelDetections || []
-})
+const labels = computed(() => labelData.value?.labelDetections || [])
+const imageWidth = computed(() => image.value?.width)
 
 const { classItems, classIdToName } = useClassOptions(classesData)
 
-// Wrap refetch functions to ensure they return Promise<void>
 const wrappedRefetchLabels = async () => {
-  console.log('wrappedRefetchLabels')
   await refetchLabels()
 }
 
-// Initialize both labeling composables
+// Use label composable
 const {
   startDrawing: startBoxDrawing,
   continueDrawing: continueBoxDrawing,
@@ -143,37 +144,81 @@ const {
   selectedClass
 )
 
-// Update drawing mode toggle
+// Use SAM Bbox composable
+const {
+  samMode,
+  isAutoLabelLoading,
+  isInSAMEditing,
+  handleSAMClick,
+  handleSAMKeyboard,
+  cleanupSAM,
+} = useSAMBbox(
+  fabricCanvas as Ref<FabricCanvas | null>,
+  selectedClass,
+  selectedModel as Ref<string>,
+  imageWidth,
+  addExistingBox,
+  handleBoxModification,
+  updateBoxesSelectability,
+  wrappedRefetchLabels,
+  predictSam,
+  (xyxy, width, height) => {
+    const dimensions = xyxyToXCenterYCenter(xyxy, width, height);
+    return { ...dimensions, classId: selectedClass.value || 0 };
+  },
+  toast
+)
+
+// Canvas utilities
+function updateBoxesSelectability() {
+  if (!fabricCanvas.value) return
+  
+  const rects = fabricCanvas.value.getObjects('rect')
+  rects.forEach((rect) => {
+    rect.set({
+      selectable: !selectedModel.value,
+      evented: !selectedModel.value,
+      hoverCursor: selectedModel.value ? 'crosshair' : 'move'
+    })
+  })
+  fabricCanvas.value.renderAll()
+}
+
+// Drawing mode toggle
 const toggleDrawingMode = (mode: 'none' | 'box' | 'segmentation') => {
   drawingMode.value = mode
   if (!fabricCanvas.value) return
-
-  // Disable selection when in drawing mode
-  fabricCanvas.value.selection = mode === 'none'
 }
 
-// Combined mouse event handlers
+// Mouse event handlers
 const handleMouseDown = (e: MouseEvent) => {
-  if (drawingMode.value === 'box') {
+  if (drawingMode.value === 'box' && !selectedModel.value) {
     startBoxDrawing(e)
   }
 }
 
 const handleMouseMove = (e: MouseEvent) => {
-  if (drawingMode.value === 'box' && isBoxDrawing.value) {
+  if (drawingMode.value === 'box' && isBoxDrawing.value && !selectedModel.value) {
     continueBoxDrawing(e)
   }
 }
 
 const handleMouseUp = async () => {
-  if (drawingMode.value === 'box' && isBoxDrawing.value) {
+  if (drawingMode.value === 'box' && isBoxDrawing.value && !selectedModel.value) {
+    
     await finishBoxDrawing()
+
+    updateBoxesSelectability()
+
   }
 }
 
 // Combined keyboard event handler
 const handleKeyDown = async (e: KeyboardEvent) => {
-  if (drawingMode.value === 'box') {
+  // First check SAM keyboard handling
+  const handled = await handleSAMKeyboard(e)
+  if (handled) return
+  // Then handle regular box keyboard events
     if (e.key === 'Backspace' || e.key === 'Delete') {
       if (!fabricCanvas.value) return
       const activeObject = fabricCanvas.value.getActiveObject()
@@ -184,11 +229,10 @@ const handleKeyDown = async (e: KeyboardEvent) => {
         fabricCanvas.value.renderAll()
         await wrappedRefetchLabels()
       }
-    }
   }
 }
 
-// Initialize canvas with both types of labels
+// Initialize canvas
 const initCanvas = async () => {
   if (!image.value || !canvasEl.value) return
 
@@ -214,11 +258,9 @@ const initCanvas = async () => {
   let canvasWidth, canvasHeight
 
   if (containerWidth / containerHeight > imageAspectRatio) {
-    // Container is wider than image aspect ratio, fit by height
     canvasHeight = containerHeight
     canvasWidth = containerHeight * imageAspectRatio
   } else {
-    // Container is taller than image aspect ratio, fit by width
     canvasWidth = containerWidth
     canvasHeight = containerWidth / imageAspectRatio
   }
@@ -228,13 +270,15 @@ const initCanvas = async () => {
     width: canvasWidth,
     height: canvasHeight,
     uniformScaling: false,
+    selection: false,
   })
 
-  // Scale image to fit the canvas (now they have the same aspect ratio)
+  // Scale image to fit the canvas
   img.scaleToWidth(canvasWidth)
 
   // Add image to canvas
-  fabricCanvas.value.add(img)
+  fabricCanvas.value.add(markRaw(img))
+  
   // Centering
   img.set({
     left: fabricCanvas.value.width! / 2,
@@ -250,10 +294,9 @@ const initCanvas = async () => {
     addExistingBox(label)
   })
 
+  // Canvas event handlers
   fabricCanvas.value.on('object:moving', (e) => {
-    if (drawingMode.value != 'box') {
-      return
-    }
+    if (drawingMode.value != 'box') return
 
     const obj = e.target as CustomRect
     // Bounded in canvas
@@ -276,51 +319,30 @@ const initCanvas = async () => {
     if (!obj || !('data' in obj)) return
 
     if ('width' in obj) {
-      // It's a bounding box
       await handleBoxModification(obj as CustomRect)
     }
   })
 
-  fabricCanvas.value.on('object:removed', async (e) => {
-    const obj = e.target
-    if (!obj || !('data' in obj)) return
-
-    if ('width' in obj) {
-      // It's a bounding box
-      await handleBoxDeletion(obj as CustomRect)
-    }
-  })
-
+  // Handle SAM clicks
   fabricCanvas.value.on('mouse:down', async (e) => {
-    console.log('mouse:down', e)
-    // Handle auto labeling methods
-    if (selectedModel.value === 'SAM') {
-      try {
-        isAutoLabelLoading.value = true
-        const { x, y } = getMousePoint(
-          e.e as MouseEvent,
-          fabricCanvas.value! as FabricCanvas,
-          image.value!.width
-        )
-        await pointToBoxBySAM(x, y)
-        await wrappedRefetchLabels()
-      } catch (error) {
-        console.error('Failed to auto-label:', error)
-      } finally {
-        isAutoLabelLoading.value = false
-        fabricCanvas.value!.renderAll()
-      }
+    if (selectedModel.value === 'SAM' && image.value) {
+      await handleSAMClick(
+        e.e as MouseEvent,
+        image.value.imageUrl,
+        image.value.width,
+        image.value.height,
+        getMousePoint
+      )
     }
   })
 
   fabricCanvas.value.renderAll()
 }
 
-// Function to delete a label from the list
+// Delete label from list
 const deleteSelectedLabel = async (label: LabelDetection) => {
   if (!fabricCanvas.value) return
 
-  // Find the corresponding rectangle on canvas
   const objects = fabricCanvas.value.getObjects('rect')
   const rect = objects.find((obj) => {
     const customRect = obj as CustomRect
@@ -335,14 +357,13 @@ const deleteSelectedLabel = async (label: LabelDetection) => {
   await wrappedRefetchLabels()
 }
 
+// Save modifications
 const saveCurrentModifications = async () => {
   if (!fabricCanvas.value) return
 
   isSaving.value = true
   try {
-    // Get all rectangle objects from canvas
     const objects = fabricCanvas.value.getObjects('rect')
-    // Update each rectangle
     for (const obj of objects) {
       const rect = obj as CustomRect
       if (rect) {
@@ -355,6 +376,7 @@ const saveCurrentModifications = async () => {
   }
 }
 
+// Create new class
 const createNewClass = async () => {
   if (!newClassName.value) return
 
@@ -373,60 +395,15 @@ const createNewClass = async () => {
   }
 }
 
-const pointToBoxBySAM = async (pointX: number, pointY: number) => {
-  console.log('pointToBoxBySAM', pointX, pointY)
-  if (!image.value) return
-
-  if (!selectedClass.value) {
-    toast.add({
-      title: 'Please select a class first',
-      color: 'error',
-    })
-    return
-  }
-
-  const result = await predictSam({
-    imageUrl: image.value.imageUrl,
-    points: [[[pointX, pointY]]],
-    labels: [[1]],
-  })
-
-  console.log('result', result)
-  if (!result) return
-
-  for (const box of result.data?.predictSAM.boxes || []) {
-    const { xCenter, yCenter, width, height } = xyxyToXCenterYCenter(
-      box.xyxy,
-      image.value.width,
-      image.value.height
-    )
-    const label = addExistingBox({
-      classId: selectedClass.value!,
-      xCenter,
-      yCenter,
-      width,
-      height,
-    })
-    if (label) {
-      const newLabelId = await handleBoxModification(label)
-      if (newLabelId) {
-        label.data!.labelId = newLabelId
-      }
-    }
-  }
-}
-
-// Initialize canvas when component is mounted and watch for image changes
+// Lifecycle hooks
 onMounted(async () => {
   await nextTick()
   if (image.value) {
     initCanvas()
-    // Add keyboard event listener with the new handler
     window.addEventListener('keydown', handleKeyDown)
   }
 })
 
-// Cleanup function
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
   if (fabricCanvas.value) {
@@ -435,31 +412,46 @@ onUnmounted(() => {
   }
 })
 
-// Watch for image changes
+// Watchers
 watch(
   () => image.value?.imageUrl,
   async (newUrl, oldUrl) => {
     if (newUrl && newUrl !== oldUrl) {
-      // dispose the canvas
       if (fabricCanvas.value) {
         fabricCanvas.value.dispose()
         fabricCanvas.value = null
       }
-
       initCanvas()
     }
   },
   { immediate: true }
 )
 
-// Watch for
-watch(selectedModel, (newModel) => {
-  if (newModel === 'SAM') {
-    // Handle SAM model selection
-    console.log('SAM model selected')
-  } else if (newModel === 'YOLO(coco)') {
-    // Handle YOLO model selection
-    console.log('YOLO model selected')
+watch(selectedModel, (newModel, oldModel) => {
+  if (fabricCanvas.value) {
+    // Clean up SAM if switching away
+    if (oldModel === 'SAM') {
+      cleanupSAM()
+    }
+    
+    fabricCanvas.value.defaultCursor = newModel ? 'crosshair' : 'default'
+    
+    if (newModel) {
+      fabricCanvas.value.discardActiveObject()
+    }
+    
+    updateBoxesSelectability()
+  }
+})
+
+// Watch drawingMode
+watch(drawingMode, (newMode) => {
+  if (fabricCanvas.value) {
+    if (newMode === 'box') {
+      fabricCanvas.value.defaultCursor = 'crosshair'
+    } else {
+      fabricCanvas.value.defaultCursor = 'default'
+    }
   }
 })
 </script>
@@ -472,7 +464,11 @@ watch(selectedModel, (newModel) => {
       <div
         class="w-48 shrink-0 flex flex-col gap-6 rounded-lg shadow-lg border p-4 h-fit"
       >
-        <AutoLabeling v-model="selectedModel" class="w-full" />
+        <AutoLabeling 
+          v-model="selectedModel" 
+          v-model:sam-mode="samMode"
+          class="w-full" 
+        />
 
         <ClassPanel
           v-model:selected-class="selectedClass"
@@ -552,6 +548,18 @@ watch(selectedModel, (newModel) => {
           @mousemove="handleMouseMove"
           @mouseup="handleMouseUp"
         >
+          <!-- SAM Mode Indicator -->
+          <div v-if="isInSAMEditing" class="absolute top-4 left-4 z-10 bg-orange-500 text-white px-3 py-2 rounded-lg shadow-lg">
+            <div class="flex items-center gap-2">
+              <UIcon name="i-heroicons-cursor-arrow-rays" />
+              <span>Click to {{ samMode === 'add' ? 'add' : 'remove' }} points</span>
+            </div>
+            <div class="text-sm mt-1">
+              Press <kbd class="px-1 bg-orange-600 rounded">Enter</kbd> to confirm or 
+              <kbd class="px-1 bg-orange-600 rounded">ESC</kbd> to cancel
+            </div>
+          </div>
+
           <!-- Loading Overlay for Auto-Labeling -->
           <div
             v-if="isAutoLabelLoading"
@@ -562,7 +570,9 @@ watch(selectedModel, (newModel) => {
               <UProgress color="success" />
             </div>
           </div>
+          
           <canvas ref="canvasEl" class="absolute inset-0" />
+          
           <div v-if="!image" class="flex flex-col items-center gap-2">
             <UIcon name="i-heroicons-photo" class="w-16 h-16" />
             <span>No image selected</span>

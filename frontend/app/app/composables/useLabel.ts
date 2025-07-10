@@ -1,6 +1,6 @@
 import type { Ref } from 'vue'
 import { ref, markRaw } from 'vue'
-import type { Canvas as FabricCanvas } from 'fabric'
+import type { Canvas as FabricCanvas, FabricObject } from 'fabric'
 import { Rect } from 'fabric'
 import { gql } from 'graphql-tag'
 import { useMutation } from '@vue/apollo-composable'
@@ -90,7 +90,7 @@ export const useLabel = (
   datasetId: string,
   refetch: () => Promise<void>,
   imageId: string,
-  selectedClassId?: Ref<number | null>
+  selectedClassId?: Ref<number | undefined>,
 ) => {
   const currentRect = ref<CustomRect | null>(null)
   const isDrawing = ref(false)
@@ -99,22 +99,43 @@ export const useLabel = (
   const { mutate: upsertLabels } = useMutation(UPSERT_LABELS_MUTATION)
   const { mutate: deleteLabel } = useMutation(DELETE_LABEL_MUTATION)
 
-  const createRect = (options: Partial<CustomRect>) => {
-    const classId = options.data?.classId || selectedClassId?.value
-    const color = classId && getClassColor ? getClassColor(classId) : 'blue'
+const createRect = (options: Partial<CustomRect>) => {
+  const classId = options.data?.classId || selectedClassId?.value
+  const color = classId && getClassColor ? getClassColor(classId) : 'blue'
 
-    return new Rect({
-      fill: 'transparent',
-      stroke: color,
-      strokeWidth: 2,
-      cornerSize: 8,
-      cornerStyle: 'circle',
-      cornerColor: color,
-      transparentCorners: false,
-      hasControls: true,
-      ...options,
-    }) as CustomRect
-  }
+  const rect = new Rect({
+    fill: 'transparent',
+    stroke: color,
+    strokeWidth: 3,
+    cornerSize: 8,
+    cornerStyle: 'circle',
+    cornerColor: 'teal',
+    cornerStrokeColor: 'white',
+    transparentCorners: false,
+    hasControls: true,
+    rotateWithControls: false,
+    rotate: false,
+    lockRotation: true,
+    hasBorders: false,
+    selectable: true,
+    evented: true,
+    ...options,
+  }) as CustomRect
+
+  rect.setControlsVisibility({
+    mt: true, // middle top
+    mb: true, // middle bottom
+    ml: true, // middle left
+    mr: true, // middle right
+    tl: true, // top left
+    tr: true, // top right
+    bl: true, // bottom left
+    br: true, // bottom right
+    mtr: false,
+  })
+
+  return rect
+}
 
   const startDrawing = (e: MouseEvent) => {
     if (!fabricCanvas.value) return
@@ -161,62 +182,84 @@ export const useLabel = (
     canvas.renderAll()
   }
 
-  const finishDrawing = async () => {
-    if (
-      !isDrawing.value ||
-      !currentRect.value ||
-      !fabricCanvas.value ||
-      !selectedClassId?.value
-    )
-      return
+const finishDrawing = async () => {
+ if (
+   !isDrawing.value ||
+   !currentRect.value ||
+   !fabricCanvas.value ||
+   !selectedClassId?.value
+ )
+   return
 
-    isDrawing.value = false
-    const canvas = fabricCanvas.value
-    const rect = currentRect.value
+ isDrawing.value = false
+ const canvas = fabricCanvas.value
+ const rect = currentRect.value
 
-    // Convert to normalized coordinates
-    const canvasWidth = canvas.width!
-    const canvasHeight = canvas.height!
+ // Save rect properties
+ const rectProps = {
+   left: rect.left!,
+   top: rect.top!,
+   width: rect.width!,
+   height: rect.height!,
+ }
 
-    const labelDetection = {
-      classId: selectedClassId.value, // No need to parse as int anymore
-      xCenter: (rect.left! + rect.width! / 2) / canvasWidth,
-      yCenter: (rect.top! + rect.height! / 2) / canvasHeight,
-      width: rect.width! / canvasWidth,
-      height: rect.height! / canvasHeight,
-    }
-    try {
-      const { data } = (await upsertLabels({
-        datasetId,
-        imageId,
-        labelDetections: [labelDetection],
-      })) as { data: UpsertLabelResult }
+ // Convert to normalized coordinates
+ const canvasWidth = canvas.width!
+ const canvasHeight = canvas.height!
+ 
+ const labelDetection = {
+   classId: selectedClassId.value,
+   xCenter: (rectProps.left + rectProps.width / 2) / canvasWidth,
+   yCenter: (rectProps.top + rectProps.height / 2) / canvasHeight,
+   width: rectProps.width / canvasWidth,
+   height: rectProps.height / canvasHeight,
+ }
 
-      if (
-        data?.upsertLabelDetections.__typename === 'UpsertLabelDetectionSuccess'
-      ) {
-        const labels = data.upsertLabelDetections.labels
-        if (labels && labels.length > 0) {
-          const newLabel = labels[0]
-          if (newLabel) {
-            rect.data = {
-              labelId: newLabel.id,
-              classId: newLabel.classId,
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Failed to create label:', error)
-    }
+ let newLabelId = ''
+ 
+ try {
+   const { data } = (await upsertLabels({
+     datasetId,
+     imageId,
+     labelDetections: [labelDetection],
+   })) as { data: UpsertLabelResult }
 
-    currentRect.value = null
-    startPoint.value = null
-    canvas.renderAll()
+   if (
+     data?.upsertLabelDetections.__typename === 'UpsertLabelDetectionSuccess'
+   ) {
+     const labels = data.upsertLabelDetections.labels
+     if (labels && labels.length > 0) {
+       const newLabel = labels[0]
+       if (newLabel) {
+         newLabelId = newLabel.id
+       }
+     }
+   }
+ } catch (error) {
+   console.error('Failed to create label:', error)
+ }
 
-    isDrawing.value = false
-    await refetch()
-  }
+ // Remove the temporary rect
+ canvas.remove(rect as unknown as FabricObject)
+ 
+ // Create a new rect using createRect
+ const newRect = createRect({
+   ...rectProps,
+   data: {
+     labelId: newLabelId,
+     classId: selectedClassId.value,
+   },
+ })
+ 
+ canvas.add(markRaw(newRect))
+ 
+ currentRect.value = null
+ startPoint.value = null
+ canvas.renderAll()
+
+ isDrawing.value = false
+ await refetch()
+}
 
   const addExistingLabel = (label: LabelDetection): CustomRect | null => {
     if (!fabricCanvas.value) return null
@@ -242,7 +285,6 @@ export const useLabel = (
   const handleModification = async (
     rect: CustomRect
   ): Promise<string | null> => {
-    console.log('handleModification', rect)
     if (!fabricCanvas.value) return null
 
     const canvasWidth = fabricCanvas.value.width!
@@ -260,7 +302,6 @@ export const useLabel = (
     }
 
     try {
-      console.log('upserting labelDetection', labelDetection)
       const result = await upsertLabels({
         datasetId,
         imageId,
@@ -295,21 +336,6 @@ export const useLabel = (
     }
   }
 
-  const handleKeyDown = async (e: KeyboardEvent) => {
-    if (!fabricCanvas.value) return
-
-    // Handle backspace or delete key
-    if (e.key === 'Backspace' || e.key === 'Delete') {
-      const activeObject = fabricCanvas.value.getActiveObject()
-      if (activeObject && 'data' in activeObject) {
-        const rect = activeObject as CustomRect
-        await handleDeletion(rect)
-        fabricCanvas.value.remove(rect)
-        fabricCanvas.value.renderAll()
-      }
-    }
-  }
-
   return {
     startDrawing,
     continueDrawing,
@@ -317,7 +343,6 @@ export const useLabel = (
     addExistingLabel,
     handleModification,
     handleDeletion,
-    handleKeyDown,
     isDrawing,
     currentRect,
   }

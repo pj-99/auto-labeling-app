@@ -84,7 +84,7 @@ export const useLabelSeg = (
   datasetId: string,
   refetch: () => Promise<void>,
   imageId: string,
-  selectedClassId?: Ref<number | null>
+  selectedClassId?: Ref<number | undefined>,
 ) => {
   const currentPolygon = ref<CustomPolygon | null>(null)
   const isDrawing = ref(false)
@@ -103,7 +103,7 @@ export const useLabelSeg = (
     const polygon = new Polygon(options.points, {
       fill: `${color}33`, // Add transparency
       stroke: color,
-      strokeWidth: 2,
+      strokeWidth: 3,
       cornerSize: 8,
       cornerStyle: 'circle',
       cornerColor: color,
@@ -116,18 +116,15 @@ export const useLabelSeg = (
     polygon.controls = controlsUtils.createObjectDefaultControls()
 
     // Enable editing when double click
-    polygon.on('mousedblclick', () => {
+    polygon.on('mousedown', () => {
       polygon.editing = !polygon.editing
       if (polygon.editing) {
         polygon.cornerStyle = 'circle'
-        polygon.cornerColor = 'rgba(0,0,255,0.5)'
+        polygon.cornerColor =  'teal'
+        polygon.cornerStrokeColor = 'white'
+        polygon.cornerSize = 10
         polygon.hasBorders = false
         polygon.controls = controlsUtils.createPolyControls(polygon)
-      } else {
-        polygon.cornerColor = 'blue'
-        polygon.cornerStyle = 'rect'
-        polygon.hasBorders = true
-        polygon.controls = controlsUtils.createObjectDefaultControls()
       }
       polygon.setCoords()
       fabricCanvas.value?.requestRenderAll()
@@ -367,7 +364,6 @@ export const useLabelSeg = (
   }
 
   const handleKeyDown = async (e: KeyboardEvent) => {
-    console.log('useLabelSeg handleKeyDown', e)
     if (!fabricCanvas.value) return
 
     if (e.key === 'Escape' && isDrawing.value) {
