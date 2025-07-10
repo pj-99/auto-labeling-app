@@ -59,6 +59,34 @@ async def get_dataset_info(dataset_id: UUID):
     return class_name_to_id, image_urls, image_ids
 
 
+async def get_image_info(dataset_id: UUID, image_id: UUID):
+    """Get the image url and classes list
+
+    Args:
+        dataset_id (UUID)
+        image_id (UUID)
+
+    Returns:
+        tuple: (class_name_to_id(dict), image_url(str))
+    """
+    database = client.get_database("app")
+    dataset_data = await database["datasets"].find_one(
+        {"id": dataset_id}, {"classes": 1, "_id": 0}
+    )
+    if not dataset_data:
+        raise ValueError(f"Dataset {dataset_id} not found")
+
+    image_data = await database["images"].find_one(
+        {"id": image_id}, {"image_url": 1, "_id": 0}
+    )
+    if not image_data:
+        raise ValueError(f"Image {image_id} not found")
+
+    class_name_to_id = {item["name"]: item["id"] for item in dataset_data["classes"]}
+
+    return class_name_to_id, image_data["image_url"]
+
+
 async def insert_label_detections(labels: List[LabelDetectionByYOLO]):
     database = client.get_database("app")
     collection = database["label_detections"]

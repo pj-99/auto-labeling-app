@@ -1,22 +1,22 @@
-from typing import List
 from uuid import UUID
 
 from pydantic import BaseModel
 
 
-class TriggerImagePredictEvent(BaseModel):
+class DatasetPredictEvent(BaseModel):
     """
-    Trigger YOLO model to predict an image.
-    """
-
-    image_url: str
-    classes: List[str]
-
-
-class TriggerDatasetPredictEvent(BaseModel):
-    """
-    Trigger YOLO model to predict all images in a dataset.
+    Trigger a job predicting all the images in the dataset.
     """
 
     dataset_id: UUID
     job_id: UUID
+
+
+class ImagePredictEvent(BaseModel):
+    """
+    Trigger a job predicting an image.
+    """
+
+    image_id: UUID
+    job_id: UUID
+    dataset_id: UUID

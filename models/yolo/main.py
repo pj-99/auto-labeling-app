@@ -2,8 +2,8 @@ import asyncio
 import os
 
 import nats
-from events import TriggerDatasetPredictEvent, TriggerImagePredictEvent
-from handler import handle_predict_dataset
+from events import DatasetPredictEvent, ImagePredictEvent
+from handler import handle_predict_dataset, handle_predict_image
 from nats.aio.client import Client
 from nats.aio.msg import Msg
 
@@ -30,13 +30,13 @@ async def main():
 
 
 async def on_predict_dataset(msg: Msg):
-    event = TriggerDatasetPredictEvent.model_validate_json(msg.data)
+    event = DatasetPredictEvent.model_validate_json(msg.data)
     await handle_predict_dataset(event.dataset_id, event.job_id)
 
 
 async def on_predict_image(msg: Msg):
-    # TODO
-    event = TriggerImagePredictEvent.model_validate_json(msg.data)
+    event = ImagePredictEvent.model_validate_json(msg.data)
+    await handle_predict_image(event.image_id, event.dataset_id, event.job_id)
 
 
 if __name__ == "__main__":

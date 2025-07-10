@@ -26,3 +26,4 @@ class ImagePredictEvent(BaseModel):
 
     image_id: UUID
     job_id: UUID
+    dataset_id: UUID

@@ -82,20 +82,21 @@ class Mutation:
 
     @strawberry.mutation
     async def predictYoloOnImage(
-        self, image_id: UUID, user_id: UUID
+        self, image_id: UUID, dataset_id: UUID, user_id: UUID
     ) -> PredictJobResponse:
         return await sendPredictJob(
             image_id=image_id,
             user_id=user_id,
             model=AutoLabelModel.YOLO_WORLD,
+            dataset_id=dataset_id,
         )
 
 
 async def sendPredictJob(
     user_id: UUID,
     model: AutoLabelModel,
-    image_id: UUID = None,
-    dataset_id: UUID = None,
+    dataset_id: UUID,
+    image_id: UUID = None,  # Only predict on single image have image_id
 ):
     # Create the job in db
     try:
@@ -124,7 +125,9 @@ async def sendPredictJob(
             # Predict on the single image
             await nats_client.publish(
                 f"predict.{predic_type}.{method}",
-                ImagePredictEvent(image_id=image_id, job_id=job_id)
+                ImagePredictEvent(
+                    image_id=image_id, job_id=job_id, dataset_id=dataset_id
+                )
                 .model_dump_json()
                 .encode(),
             )
