@@ -70,7 +70,8 @@ jobs:
         shell: bash
         run: echo "TAG=`git rev-parse --short HEAD`" >> $GITHUB_ENV
 
-      - name: 'Authenticate to Google Cloud'
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@v2'
         with:
           workload_identity_provider: '${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}'
