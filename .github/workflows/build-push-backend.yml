@@ -44,6 +44,11 @@ jobs:
         shell: bash
         run  : echo "TAG=`git rev-parse --short HEAD`" >> $GITHUB_ENV
 
+      # Somehow `docker compose push` need env_file, so we create one as workaround
+      - name: 'Create dummy env for push'
+        run: |-
+          touch backend/app/dev.env
+
       - name: 'Build and Push Image'
         run: |-
           docker compose build backend-app
