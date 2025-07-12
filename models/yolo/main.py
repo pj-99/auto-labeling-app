@@ -15,7 +15,7 @@ async def main():
 
     await nc.subscribe("predict.dataset.yolo", cb=on_predict_dataset)
 
-    await nc.subscribe("predict.image.yolo", cb=on_predict_dataset)
+    await nc.subscribe("predict.image.yolo", cb=on_predict_image)
 
     print("All subscribed")
 
