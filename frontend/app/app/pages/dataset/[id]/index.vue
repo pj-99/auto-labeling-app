@@ -1,96 +1,31 @@
-
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
-import { useQuery, useMutation } from '@vue/apollo-composable'
-import { gql } from 'graphql-tag'
-import type { Dataset } from '~/types/dataset'
+import { useDatasetsStore } from '@/store/datasets'
+import EmptyStateFallback from '~/components/dataset/EmptyStateFallback.vue'
+import FileUploadDropzone from '~/components/dataset/FileUploadDropzone.vue'
+import ImageGrid from '~/components/dataset/ImageGrid.vue'
 
 const route = useRoute()
 const datasetId = route.params.id
-const fileInput = ref<HTMLInputElement | null>(null)
-const uploading = ref(false)
-const toast = useToast()
 
-// TODO: Replace with actual user ID from auth system
+const toast = useToast()
+const datasetsStore = useDatasetsStore()
+const { uploading, uploadImages } = useImageUpload()
+
+// TODO: Replace with actual user ID from the auth system
 const userId = '123e4567-e89b-12d3-a456-426614174000'
 
-// GraphQL Queries
-const DATASET_QUERY = gql`
-  query GetDatasets($userId: UUID!) {
-    datasets(userId: $userId) {
-      id
-      name
-      createdAt
-      updatedAt
-      createdBy
-      trainingType
-      images {
-        id
-        imageName
-        imageUrl
-        createdAt
-        updatedAt
-        caption
-        createdBy
-      }
-    }
-  }
-`
+// Accepted image file types
+const acceptedImageTypes = ['image/jpeg', 'image/jpg', 'image/png']
+const acceptedExtensions = '.jpg,.jpeg,.png'
 
-const INSERT_IMAGE_MUTATION = gql`
-  mutation InsertImageToDataset(
-    $userId: UUID!
-    $datasetId: UUID!
-    $gcsFileName: String!
-    $imageName: String!
-    $imageType: String!
-    $width: Int!
-    $height: Int!
-  ) {
-    insertImageToDataset(
-      userId: $userId
-      datasetId: $datasetId
-      gcsFileName: $gcsFileName
-      imageName: $imageName
-      imageType: $imageType
-      width: $width
-      height: $height
-    ) {
-      id
-      imageName
-      imageUrl
-      createdAt
-      updatedAt
-      caption
-      createdBy
-    }
-  }
-`
+const { fetchLabelsWithClassNames } = useLabelQuery()
+const { dataset, loading, refetch } = useDataset(userId, datasetId as string)
 
-// Query for dataset data
-const {
-  result: datasetsData,
-  loading,
-  refetch,
-} = useQuery(DATASET_QUERY, {
-  userId,
-})
+// Stores labels of any type (Detection or Segmentation)
+const imageLabelsMap = ref<Map<string, LabelDetection[] | LabelSegmentation[]>>(new Map())
 
-// Get the current dataset from the query result
-const dataset = computed(() => {
-  const dataset = datasetsData.value?.datasets.find(
-    (d: Dataset) => d.id === datasetId
-  )
-  return dataset
-})
-
-// Mutation for image upload
-const { mutate: insertImageMutation } = useMutation(INSERT_IMAGE_MUTATION)
-
-const handleUploadClick = () => {
-  fileInput.value?.click()
-}
-
+// Format timestamp to readable date string
 const formatDate = (dateString: string) => {
   if (!dateString) return ''
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -100,113 +35,90 @@ const formatDate = (dateString: string) => {
   })
 }
 
-// Function to get signed URL from FastAPI
-const getSignedUrl = async (contentType: string) => {
-  const {
-    public: { apiBase },
-  } = useRuntimeConfig()
+// Handle selected files
+const processFiles = async (files: FileList | File[]) => {
+  await uploadImages(files, datasetId as string, userId, () => {
+    refetch()
+  })
+}
+
+// Dataset pagination
+const { currentPage, pageSize, totalImages, paginatedImages } = useDatasetPagination(dataset)
+
+// Fetch labels for a given image
+const fetchLabelsForImage = async (imageId: string) => {
+  if (!dataset.value) return
 
   try {
-    const response = await fetch(`${apiBase}/generate-signed-url`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ content_type: contentType }),
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to get signed URL')
-    }
-
-    return await response.json()
+    const labels = await fetchLabelsWithClassNames(
+      dataset.value.id,
+      imageId,
+      dataset.value.trainingType
+    )
+    imageLabelsMap.value.set(imageId, labels as LabelDetection[] | LabelSegmentation[])
   } catch (error) {
-    console.error('Error getting signed URL:', error)
-    throw error
+    console.error(`Failed to fetch labels for image ${imageId}:`, error)
   }
 }
 
-// Function to upload file using signed URL
-const uploadFileToGCS = async (file: File, signedUrl: string) => {
-  try {
-    const response = await fetch(signedUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': file.type,
-      },
-      body: file,
-    })
+// Lifecycle: on mount
+onMounted(async () => {
+  datasetsStore.setCurrentDataset(route.params.id as string)
 
-    if (!response.ok) {
-      throw new Error('Failed to upload file to storage')
-    }
-  } catch (error) {
-    console.error('Error uploading to GCS:', error)
-    throw error
-  }
-}
+  if (!loading.value && dataset.value && paginatedImages.value) {
+    datasetsStore.updateCurrentDatasetMeta({ images: paginatedImages.value })
 
-const handleFileChange = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  if (!input.files?.length) return
-
-  uploading.value = true
-  try {
-    // Process each file
-    for (const file of Array.from(input.files)) {
-      // Step 1: Get signed URL for the file
-      const { url: signedUrl, filename } = await getSignedUrl(file.type)
-      // Step 2: Upload the file to GCS using the signed URL
-      await uploadFileToGCS(file, signedUrl)
-      const { width, height } = await getImageDimensions(file)
-      // Step 3: Insert image record via GraphQL mutation
-      await insertImageMutation({
-        userId,
-        datasetId,
-        gcsFileName: filename,
-        imageName: file.name,
-        imageType: file.type,
-        width: width,
-        height: height,
-      })
-    }
-
-    // Refetch dataset to update the UI
-    await refetch()
-
-    // Show success notification
-    toast.add({
-      title: `Successfully uploaded ${input.files.length} images`,
-      color: 'success',
-      duration: 5000,
-      progress: false,
-      close: false,
-      icon: 'i-heroicons-check-circle',
-    })
-  } catch (error) {
-    console.error('Upload error:', error)
-    // Show error notification
-    toast.add({
-      title: 'Failed to upload images',
-      description:
-        error instanceof Error ? error.message : 'Unknown error occurred',
-      color: 'error',
-      duration: 5000,
-      icon: 'i-heroicons-exclamation-triangle',
-    })
-  } finally {
-    uploading.value = false
-    // Reset input
-    if (fileInput.value) {
-      fileInput.value.value = ''
+    for (const image of paginatedImages.value) {
+      if (!imageLabelsMap.value.has(image.id)) {
+        await fetchLabelsForImage(image.id)
+      }
     }
   }
+})
+
+// Cleanup on unmount
+onUnmounted(() => {
+  datasetsStore.setCurrentDataset(null)
+})
+
+// Watch dataset and pagination changes
+watch(
+  [dataset, currentPage, loading],
+  ([currentDataset, _, isLoading]) => {
+    if (!isLoading && currentDataset) {
+      datasetsStore.updateCurrentDatasetMeta({ images: paginatedImages.value })
+    }
+  },
+  { immediate: true }
+)
+
+// Watch paginated images and fetch labels
+watch(paginatedImages, async (images) => {
+  if (!dataset.value) return
+
+  for (const image of images) {
+    if (!imageLabelsMap.value.has(image.id)) {
+      await fetchLabelsForImage(image.id)
+    }
+  }
+})
+
+// Handle file validation error
+const handleValidationError = (invalidFiles: File[]) => {
+  toast.add({
+    title: 'Invalid file type',
+    description: `The following files are not supported image formats: ${invalidFiles
+      .map((f) => f.name)
+      .join(', ')}`,
+    color: 'error',
+    duration: 5000,
+    icon: 'i-heroicons-exclamation-triangle',
+  })
 }
 </script>
 
-
 <template>
-  <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
+  <div class="max-w-[90%] mx-auto sm:px-6 lg:px-8">
     <!-- Header Section -->
     <div class="mb-8">
       <div class="mb-8">
@@ -220,93 +132,72 @@ const handleFileChange = async (event: Event) => {
         </div>
         <p class="text-muted">Upload and manage images in this dataset</p>
         <div class="mt-2 flex items-center gap-2">
-          <UBadge variant="soft" size="md"
-            >{{ dataset?.images?.length || 0 }} images</UBadge
-          >
-          <UBadge variant="outline" size="md"
-            >Created {{ formatDate(dataset?.createdAt) }}</UBadge
-          >
-        </div>
-      </div>
-      <!-- Upload Section -->
-      <div class="mb-12">
-        <h2 class="text-xl font-medium mb-4">Upload Images</h2>
-        <div class="border-2 border-dashed rounded-lg p-8">
-          <div class="text-center">
-            <UIcon
-              name="i-heroicons-cloud-arrow-up"
-              class="mx-auto h-12 w-12 text-gray-400"
-            />
-            <div class="mt-4">
-              <h3 class="text-lg font-semibold">Drop Files Here</h3>
-              <p class="mt-1 text-sm">
-                Drag and drop your images here, or click to select files
-              </p>
-            </div>
-            <UButton
-              class="mt-4"
-              :loading="uploading"
-              @click="handleUploadClick"
-            >
-              Select Files
-            </UButton>
-            <input
-              ref="fileInput"
-              type="file"
-              multiple
-              accept="image/*"
-              class="hidden"
-              @change="handleFileChange"
-            >
-          </div>
+          <UBadge variant="soft" size="md">
+            {{ dataset?.images?.length || 0 }} images
+          </UBadge>
+          <UBadge variant="outline" size="md">
+            Created {{ formatDate(dataset?.createdAt) }}
+          </UBadge>
         </div>
       </div>
 
-      <!-- Images Grid Section -->
-      <div class="mt-12 mb-12">
+      <!-- Upload Section -->
+      <UCollapsible class="flex flex-col">
+        <UButton
+          label="Upload Images"
+          color="primary"
+          class="w-full"
+          trailing-icon="i-lucide-chevron-down"
+          block
+        />
+        <template #content>
+          <div class="mb-12 mt-4">
+            <FileUploadDropzone
+              :loading="uploading"
+              :accept="acceptedExtensions"
+              :accepted-types="acceptedImageTypes"
+              @files-selected="processFiles"
+              @validation-error="handleValidationError"
+            />
+          </div>
+        </template>
+      </UCollapsible>
+
+      <!-- Image Grid Section -->
+      <div class="mt-6 mb-12">
         <h2 class="text-xl font-medium mb-4">Dataset Images</h2>
+
+        <!-- Pagination -->
+        <div v-if="totalImages > pageSize" class="my-8 flex justify-center">
+          <UPagination
+            v-model:page="currentPage"
+            :total="totalImages"
+            :items-per-page="pageSize"
+            show-first
+            show-last
+          />
+        </div>
 
         <div v-if="loading" class="text-center py-8">
           <p class="text-gray-600">Loading images...</p>
         </div>
 
-        <div
-          v-else
-          class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
-        >
-          <NuxtLink
-            v-for="image in dataset?.images"
-            :key="image.id"
-            :to="`/dataset/${datasetId}/image/${encodeUuidToBase64(image.id)}/${dataset.trainingType.toLowerCase()}`"
-            class="aspect-square relative overflow-hidden rounded-lg bg-gray-100 group hover:ring-2 hover:ring-primary-500 transition-all duration-200"
-          >
-            <NuxtImg
-              :src="image.imageUrl"
-              :alt="image.imageName"
-              class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-              loading="lazy"
-              sizes="(min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
-              :img-attrs="{
-                class: 'absolute inset-0 w-full h-full object-cover',
-              }"
-            />
-            <div
-              class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-            >
-              <p class="text-white text-sm truncate">{{ image.imageName }}</p>
-            </div>
-          </NuxtLink>
+        <div v-else>
+          <ImageGrid
+            v-if="!loading && paginatedImages.length > 0"
+            :images="paginatedImages"
+            :labels="imageLabelsMap"
+            :dataset-id="datasetId?.toString() || ''"
+            :training-type="dataset.trainingType"
+          />
         </div>
 
-        <!-- Empty State -->
-        <div
+        <EmptyStateFallback
           v-if="!loading && (!dataset?.images || dataset.images.length === 0)"
-          class="text-center py-8"
-        >
-          <p class="text-gray-600">
-            No images found. Upload some images to get started.
-          </p>
-        </div>
+          title="Dataset is empty"
+          description="Images will appear here once uploaded"
+          icon="i-heroicons-cube-transparent"
+        />
       </div>
     </div>
   </div>

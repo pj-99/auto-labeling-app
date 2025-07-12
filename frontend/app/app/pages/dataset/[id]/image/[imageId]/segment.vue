@@ -17,8 +17,9 @@ import ClassPanel from '~/components/labeling/ClassPanel.vue'
 import { useClassOptions } from '~/composables/useCalssOptions'
 import {
   useAutoLabelingMutation,
-  SAMMutation,
+  SAM_MUTATION
 } from '~/composables/useAutoLabelingQuery'
+import LabelList from '~/components/labeling/LabelList.vue'
 
 const route = useRoute()
 
@@ -35,7 +36,7 @@ const selectedClass = ref<number | undefined>(undefined)
 const newClassName = ref('')
 const isAddingClass = ref(false)
 
-const { mutate: predictSam } = useAutoLabelingMutation(SAMMutation)
+const { mutate: predictSam } = useAutoLabelingMutation(SAM_MUTATION)
 const toast = useToast()
 
 // TODO: Replace with actual user ID from auth system
@@ -303,7 +304,7 @@ const initCanvas = async () => {
 }
 
 // Delete label from list
-const deleteSelectedLabel = async (label: LabelSegmentation) => {
+const deleteSelectedLabel = async (label: { id?: string | number }) => {
   if (!fabricCanvas.value) return
 
   const objects = fabricCanvas.value.getObjects('polygon')
@@ -404,6 +405,19 @@ watch(selectedModel, (newModel, oldModel) => {
     updatePolygonsSelectability()
   }
 })
+
+// Watch labels to update canvas
+watch(segmentations, (newLabels) => {
+  console.log('Labels updated:', newLabels)
+  if (!fabricCanvas.value) return
+  fabricCanvas.value.getObjects('polygon').forEach((obj) => {
+    fabricCanvas.value!.remove(obj)
+  })
+  newLabels.forEach((label: LabelSegmentation) => {
+    addExistingSegmentation(label)
+  })
+  fabricCanvas.value.renderAll()
+})
 </script>
 
 <template>
@@ -468,39 +482,13 @@ watch(selectedModel, (newModel, oldModel) => {
         </UButton>
 
         <!-- Label List -->
-        <div class="flex flex-col gap-2">
-          <h2 class="text-lg font-medium mb-2">Label List</h2>
-          <div class="space-y-2 max-h-[calc(100vh-36rem)] overflow-y-auto">
-            <div
-              v-if="segmentations.length === 0"
-              class="text-gray-500 text-sm"
-            >
-              No labels yet
-            </div>
-            <div
-              v-for="label in segmentations"
-              :key="label.id"
-              class="flex items-center justify-between p-2 rounded-lg"
-            >
-              <div class="flex items-center gap-2">
-                <div
-                  class="w-2 h-2 rounded-full"
-                  :style="{ backgroundColor: getClassColor(label.classId) }"
-                />
-                <span class="text-sm">{{
-                  classIdToName.get(label.classId) || `Class ${label.classId}`
-                }}</span>
-              </div>
-              <UButton
-                icon="i-heroicons-trash"
-                color="error"
-                variant="ghost"
-                size="xs"
-                @click="deleteSelectedLabel(label)"
-              />
-            </div>
-          </div>
-        </div>
+        <LabelList
+          :labels="segmentations"
+          :class-id-to-name="classIdToName"
+          @delete="deleteSelectedLabel"
+          @hover="handleLabelHover"
+          @select="handleLabelSelect"
+        />
       </div>
 
       <!-- Right Content Area -->

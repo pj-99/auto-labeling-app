@@ -17,8 +17,10 @@ import { useClassOptions } from '~/composables/useCalssOptions'
 import ClassPanel from '~/components/labeling/ClassPanel.vue'
 import {
   useAutoLabelingMutation,
-  SAMMutation,
+  SAM_MUTATION,
+  PREDICT_GDINO_ON_IMAGE_MUTATION
 } from '~/composables/useAutoLabelingQuery'
+import LabelList from '~/components/labeling/LabelList.vue'
 
 const route = useRoute()
 
@@ -35,7 +37,7 @@ const selectedClass = ref<number | undefined>(undefined)
 const newClassName = ref('')
 const isAddingClass = ref(false)
 
-const { mutate: predictSam } = useAutoLabelingMutation(SAMMutation)
+const { mutate: predictSam } = useAutoLabelingMutation(SAM_MUTATION)
 const toast = useToast()
 
 // TODO: Replace with actual user ID from auth system
@@ -115,6 +117,7 @@ const { result: classesData, refetch: refetchClasses } = useQuery(
 )
 
 const { mutate: insertClass } = useMutation(INSERT_CLASS_MUTATION)
+const { mutate: predictGDINOOnImage } = useAutoLabelingMutation(PREDICT_GDINO_ON_IMAGE_MUTATION)
 
 // Computed properties
 const image = computed(() => imageData.value?.image)
@@ -168,6 +171,72 @@ const {
   },
   toast
 )
+// Add YOLO loading state
+const isYoloLoading = ref(false)
+
+// Add YOLO automatic labeling handler function
+const handleRunAutoLabeling = async () => {
+  if (selectedModel.value !== 'YOLO(coco)') return
+
+  console.log(imageId)
+  isYoloLoading.value = true
+  try {
+    const result = await predictGDINOOnImage({
+      imageId,
+      datasetId,
+      userId
+    })
+    
+    console.log('YOLO result:', result)
+    
+    const jobId = result?.data?.predictYoloOnImage?.jobId
+    const errorMessage = result?.data?.predictYoloOnImage?.message
+    
+    if (jobId) {
+      toast.add({
+        title: 'YOLO inference started',
+        icon: 'i-heroicons-arrow-path',
+        color: 'success'
+      })
+      
+      // Wait for inference to complete then reload label data
+      setTimeout(async () => {
+        await wrappedRefetchLabels()
+        toast.add({
+          title: 'YOLO inference completed',
+          icon: 'i-heroicons-check-circle',
+          description: 'Please check the new detection results',
+          color: 'success'
+        })
+            isYoloLoading.value = false
+            // Watch labels to update canvas
+
+            if (!fabricCanvas.value) return
+            fabricCanvas.value.getObjects('rect').forEach((obj) => {
+              fabricCanvas.value!.remove(obj)
+            })
+            labels.value.forEach((label: LabelDetection) => {
+              addExistingBox(label)
+            })
+            fabricCanvas.value.renderAll()
+      }, 10000) // Reload after 10 seconds
+      
+    } else if (errorMessage) {
+      toast.add({
+        title: 'Inference failed',
+        description: errorMessage,
+        color: 'error'
+      })
+    }
+  } catch (error) {
+    console.error('YOLO prediction failed:', error)
+    toast.add({
+      title: 'Inference request failed',
+      description: 'Please check your network connection and try again later',
+      color: 'error'
+    })
+  }
+}
 
 // Canvas utilities
 function updateBoxesSelectability() {
@@ -339,9 +408,9 @@ const initCanvas = async () => {
   fabricCanvas.value.renderAll()
 }
 
-// Delete label from list
-const deleteSelectedLabel = async (label: LabelDetection) => {
-  if (!fabricCanvas.value) return
+// Delete label from list - updated to handle type mismatch
+const deleteSelectedLabel = async (label: { id?: string | number }) => {
+  if (!fabricCanvas.value || !label.id) return
 
   const objects = fabricCanvas.value.getObjects('rect')
   const rect = objects.find((obj) => {
@@ -467,7 +536,9 @@ watch(drawingMode, (newMode) => {
         <AutoLabeling 
           v-model="selectedModel" 
           v-model:sam-mode="samMode"
-          class="w-full" 
+          :is-loading="isYoloLoading"
+          class="w-full"
+          @run-auto-labeling="handleRunAutoLabeling"
         />
 
         <ClassPanel
@@ -481,18 +552,19 @@ watch(drawingMode, (newMode) => {
         <div class="flex flex-col gap-2">
           <UButton
             icon="i-heroicons-square-2-stack"
-            :disabled="!selectedClass"
+            :disabled="selectedClass === undefined || selectedClass === null"
             :color="drawingMode === 'box' ? 'primary' : 'neutral'"
             @click="toggleDrawingMode(drawingMode === 'box' ? 'none' : 'box')"
           >
             {{ drawingMode === 'box' ? 'Exit Box Mode' : 'Draw Box' }}
             <template #trailing>
-              <span v-if="!selectedClass" class="text-xs text-gray-500"
+              <span v-if="selectedClass === undefined || selectedClass === null" class="text-xs text-gray-500"
                 >(Select a class first)</span
               >
-              <span v-else class="text-xs">
-                {{ classIdToName.get(selectedClass!) }}
-              </span>
+                <UBadge 
+                v-else
+                 color="secondary" class="ml-1" variant="soft"
+                :label="classIdToName.get(selectedClass) || `Class ${selectedClass}`" />
             </template>
           </UButton>
         </div>
@@ -507,36 +579,13 @@ watch(drawingMode, (newMode) => {
         </UButton>
 
         <!-- Label List -->
-        <div class="flex flex-col gap-2">
-          <h2 class="text-lg font-medium mb-2">Label List</h2>
-          <div class="space-y-2 max-h-[calc(100vh-36rem)] overflow-y-auto">
-            <div v-if="labels.length === 0" class="text-gray-500 text-sm">
-              No labels yet
-            </div>
-            <div
-              v-for="label in labels"
-              :key="label.id"
-              class="flex items-center justify-between p-2 rounded-lg"
-            >
-              <div class="flex items-center gap-2">
-                <div
-                  class="w-2 h-2 rounded-full"
-                  :style="{ backgroundColor: getClassColor(label.classId) }"
-                />
-                <span class="text-sm">{{
-                  classIdToName.get(label.classId) || `Class ${label.classId}`
-                }}</span>
-              </div>
-              <UButton
-                icon="i-heroicons-trash"
-                color="error"
-                variant="ghost"
-                size="xs"
-                @click="deleteSelectedLabel(label)"
-              />
-            </div>
-          </div>
-        </div>
+        <LabelList
+          :labels="labels"
+          :class-id-to-name="classIdToName"
+          @delete="deleteSelectedLabel"
+          @hover="handleLabelHover"
+          @select="handleLabelSelect"
+        />
       </div>
 
       <!-- Right Content Area -->

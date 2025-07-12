@@ -4,7 +4,9 @@ import { useQuery } from '@vue/apollo-composable'
 import { gql } from 'graphql-tag'
 import CreateDatasetModal from '@/components/dataset/CreateDatasetModal.vue'
 import type { Dataset  } from '~/types/dataset'
+import { useDatasetsStore } from '@/store/datasets'
 
+const datasetsStore = useDatasetsStore()
 definePageMeta({
   layout: 'default',
 })
@@ -42,6 +44,7 @@ const {
 })
 
 const datasets = computed(() => {
+  datasetsStore.setDatasets(datasetsData.value?.datasets || [])
   return datasetsData.value?.datasets || []
 })
 
