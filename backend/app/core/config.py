@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -10,7 +11,7 @@ class Settings(BaseSettings):
         model_config = SettingsConfigDict(env_file="dev.env")
 
     MONGO_URL: str
-    GOOGLE_APPLICATION_CREDENTIALS: str
+    GOOGLE_APPLICATION_CREDENTIALS: Optional[str] = None
     GCP_STORAGE_BUCKET: str
 
     def __init__(self, *args, **kwargs):
@@ -18,6 +19,7 @@ class Settings(BaseSettings):
         self.setup_credentials()
 
     def setup_credentials(self):
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = (
-            self.GOOGLE_APPLICATION_CREDENTIALS
-        )
+        if self.GOOGLE_APPLICATION_CREDENTIALS:
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = (
+                self.GOOGLE_APPLICATION_CREDENTIALS
+            )
