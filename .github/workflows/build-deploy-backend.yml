@@ -76,6 +76,13 @@ jobs:
           workload_identity_provider: '${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}'
           service_account: 'github-deploy@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com'
 
+      - name: 'Docker Auth'
+        uses: 'docker/login-action@v3'
+        with:
+          username: 'oauth2accesstoken'
+          password: '${{ steps.auth.outputs.auth_token }}'
+          registry: '${{ env.REGION }}-docker.pkg.dev'
+
       - name: 'Deploy to Cloud Run'
         uses: 'google-github-actions/deploy-cloudrun@v2'
         with:
