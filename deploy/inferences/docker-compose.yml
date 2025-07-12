@@ -1,0 +1,15 @@
+services:
+  models-sam:
+    image: ${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/auto-labeling-app/models-sam:${TAG:-latest}
+    container_name: labeling-app-models-sam
+    environment:
+      NATS_URL: ${NATS_URL}
+    restart: on-failure
+
+  models-yolo:
+    image: ${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/auto-labeling-app/models-yolo:${TAG:-latest}
+    container_name: labeling-app-models-yolo
+    environment:
+      NATS_URL: ${NATS_URL}
+      MONGO_URL: ${MONGO_URL}
+    restart: on-failure
