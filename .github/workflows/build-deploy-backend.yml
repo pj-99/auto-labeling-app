@@ -89,4 +89,4 @@ jobs:
         with:
           service: 'backend-app'
           region: '${{ env.GCP_REGION }}'
-          image: '${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/auto-labeling/backend-app:${{ env.TAG }}'
+          image: '${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/auto-labeling-app/backend-app:${{ env.TAG }}'
