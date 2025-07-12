@@ -13,7 +13,7 @@ services:
       - 27017:27017
 
   backend-app:
-    image: labeling-app-backend-image
+    image: ${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/auto-labeling-app/backend-app:${TAG:-latest}
     build:
       context: backend/app
       dockerfile: Dockerfile
@@ -32,19 +32,14 @@ services:
     volumes:
       - ./backend/app:/app
       - /app/.venv
-    # For dev env
     command: /app/.venv/bin/fastapi run main.py --port 80 --host 0.0.0.0 --reload
     develop:
       watch:
-        # Sync the working directory with the `/app` directory in the container
         - action: sync
           path: .
           target: backend/app
-          # Exclude the project virtual environment
           ignore:
             - .venv/
-
-        # Rebuild the image on changes to the `pyproject.toml`
         - action: rebuild
           path: ./pyproject.toml
 
@@ -58,12 +53,11 @@ services:
       - ./data/nats:/data/nats
 
   models-gateway:
-    image: labeling-app-model-gateway-image
+    image: ${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/auto-labeling-app/models-gateway:${TAG:-latest}
     build:
       context: models/gateway
       dockerfile: Dockerfile
     container_name: labeling-app-models-gateway
-    # For dev env
     command: /app/.venv/bin/fastapi run main.py --port 80 --host 0.0.0.0 --reload
     depends_on:
       - nats
@@ -76,7 +70,7 @@ services:
       MONGO_URL: mongodb://root:example@mongo:27017
 
   models-sam:
-    image: labeling-app-model-sam-image
+    image: ${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/auto-labeling-app/models-sam:${TAG:-latest}
     build:
       context: models/sam
       dockerfile: Dockerfile
@@ -87,7 +81,7 @@ services:
       NATS_URL: nats://nats:4222
 
   models-yolo:
-    image: labeling-app-model-yolo-image
+    image: ${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/auto-labeling-app/models-yolo:${TAG:-latest}
     build:
       context: models/yolo
       dockerfile: Dockerfile
