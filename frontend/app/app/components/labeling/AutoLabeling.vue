@@ -7,6 +7,7 @@ export type SAMMode = 'add' | 'remove'
 const props = defineProps<{
   modelValue: ModelType | null
   samMode?: SAMMode
+  isLoading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -129,9 +130,11 @@ const handleToggle = (val: boolean) => {
         class="w-full"
         variant="solid"
         icon="i-heroicons-play"
+        :loading="isLoading"
+        :disabled="isLoading"
         @click="handleRun"
       >
-        Run
+        {{ isLoading ? 'Running YOLO...' : 'Run' }}
       </UButton>
 
       <p

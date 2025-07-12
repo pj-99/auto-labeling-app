@@ -6,7 +6,7 @@ import { gql } from 'graphql-tag'
 import { useMutation } from '@vue/apollo-composable'
 export interface LabelDetection {
   id?: string
-  classId: number
+  classId: number | 0
   xCenter: number
   yCenter: number
   width: number
@@ -37,8 +37,8 @@ type UpsertLabelResult = {
 
 export interface CustomRect extends Rect {
   data?: {
-    labelId: string
-    classId: number
+    labelId?: string
+    classId?: number
   }
 }
 
@@ -100,8 +100,8 @@ export const useLabel = (
   const { mutate: deleteLabel } = useMutation(DELETE_LABEL_MUTATION)
 
 const createRect = (options: Partial<CustomRect>) => {
-  const classId = options.data?.classId || selectedClassId?.value
-  const color = classId && getClassColor ? getClassColor(classId) : 'blue'
+  const classId = options.data?.classId ?? selectedClassId?.value
+const color = (classId !== undefined && classId !== null && getClassColor) ? getClassColor(classId) : 'blue'
 
   const rect = new Rect({
     fill: 'transparent',
@@ -150,7 +150,11 @@ const createRect = (options: Partial<CustomRect>) => {
       top: pointer.y,
       width: 0,
       height: 0,
+      data: {
+        classId: selectedClassId?.value ?? 0
+      }
     })
+    console.log('Starting drawing with rect:', rect)
 
     currentRect.value = rect
     // Without markRaw, scaling object will not work
@@ -166,7 +170,6 @@ const createRect = (options: Partial<CustomRect>) => {
       !fabricCanvas.value
     )
       return
-
     const canvas = fabricCanvas.value
     const pointer = canvas.getPointer(e)
     const width = pointer.x - startPoint.value.x
@@ -186,8 +189,7 @@ const finishDrawing = async () => {
  if (
    !isDrawing.value ||
    !currentRect.value ||
-   !fabricCanvas.value ||
-   !selectedClassId?.value
+   !fabricCanvas.value
  )
    return
 
@@ -208,7 +210,7 @@ const finishDrawing = async () => {
  const canvasHeight = canvas.height!
  
  const labelDetection = {
-   classId: selectedClassId.value,
+   classId: selectedClassId?.value ?? 0,
    xCenter: (rectProps.left + rectProps.width / 2) / canvasWidth,
    yCenter: (rectProps.top + rectProps.height / 2) / canvasHeight,
    width: rectProps.width / canvasWidth,
@@ -241,13 +243,13 @@ const finishDrawing = async () => {
 
  // Remove the temporary rect
  canvas.remove(rect as unknown as FabricObject)
- 
+
  // Create a new rect using createRect
  const newRect = createRect({
    ...rectProps,
    data: {
      labelId: newLabelId,
-     classId: selectedClassId.value,
+     classId: selectedClassId!.value ?? 0,
    },
  })
  
