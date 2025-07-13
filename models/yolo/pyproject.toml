@@ -1,7 +1,7 @@
 [project]
 name = "yolo"
 version = "0.1.0"
-description = "Add your description here"
+description = "YOLO World model"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
