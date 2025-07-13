@@ -1,5 +1,5 @@
-import enum
 import json
+import os
 from contextlib import asynccontextmanager
 from typing import Annotated, List, Union
 from uuid import UUID
@@ -60,7 +60,7 @@ class Mutation:
             SAMPredictEvent(image_url=image_url, points=points, labels=labels)
             .model_dump_json()
             .encode(),
-            timeout=10,
+            timeout=25,
         )
 
         result = json.loads(resp.data.decode("utf-8"))
@@ -159,7 +159,10 @@ app = FastAPI(lifespan=lifespan)
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_origins=[
+        "http://localhost:3000",
+        os.getenv("FRONTEND_URL"),
+    ],  # Frontend URL
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers

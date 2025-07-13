@@ -1,3 +1,5 @@
+import os
+
 import strawberry
 from api.graphql.mutation import Mutation
 from api.graphql.queries import Query
@@ -15,7 +17,7 @@ app = FastAPI()
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_origins=["http://localhost:3000", os.getenv("FRONTEND_URL")],  # Frontend URL
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
