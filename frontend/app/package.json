@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@apollo/client": "^3.13.8",
+    "@clerk/nuxt": "^1.7.6",
     "@iconify-json/lucide": "^1.2.54",
     "@iconify-json/simple-icons": "^1.2.41",
     "@nuxt/icon": "^1.15.0",

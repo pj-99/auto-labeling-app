@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { useQuery, useMutation } from '@vue/apollo-composable'
-import { gql } from 'graphql-tag'
 import { Canvas as FabricCanvas, FabricImage } from 'fabric'
 import type {
   LabelSegmentation,
@@ -33,8 +31,6 @@ const fabricCanvas = ref<FabricCanvas | null>(null)
 const drawingMode = ref<'none' | 'box' | 'segmentation'>('none')
 const isSaving = ref(false)
 const selectedClass = ref<number | undefined>(undefined)
-const newClassName = ref('')
-const isAddingClass = ref(false)
 
 const { mutate: predictSam } = useAutoLabelingMutation(SAM_MUTATION)
 const toast = useToast()
@@ -42,85 +38,18 @@ const toast = useToast()
 // TODO: Replace with actual user ID from auth system
 const userId = '123e4567-e89b-12d3-a456-426614174000'
 
-// GraphQL Queries
-const IMAGE_QUERY = gql`
-  query GetImage($userId: UUID!, $imageId: UUID!) {
-    image(userId: $userId, imageId: $imageId) {
-      id
-      imageName
-      imageUrl
-      width
-      height
-      createdAt
-      updatedAt
-      caption
-      createdBy
-    }
-  }
-`
-
-const LABEL_SEGMENTATIONS_QUERY = gql`
-  query GetLabelSegmentations($datasetId: UUID!, $imageId: UUID!) {
-    labelSegmentations(datasetId: $datasetId, imageId: $imageId) {
-      id
-      classId
-      mask
-    }
-  }
-`
-
-const CLASSES_QUERY = gql`
-  query GetClasses($datasetId: UUID!) {
-    classes(datasetId: $datasetId) {
-      id
-      name
-      createdAt
-      updatedAt
-    }
-  }
-`
-
-const INSERT_CLASS_MUTATION = gql`
-  mutation InsertClass($datasetId: UUID!, $name: String!) {
-    insertClass(datasetId: $datasetId, name: $name) {
-      id
-      name
-      createdAt
-      updatedAt
-    }
-  }
-`
-
-// Query hooks
-const { result: imageData } = useQuery(IMAGE_QUERY, {
-  userId,
-  imageId,
-})
-
-const { result: segmentationData, refetch: refetchSegmentations } = useQuery(
-  LABEL_SEGMENTATIONS_QUERY,
-  {
-    datasetId,
-    imageId,
-  }
-)
-
-const { result: classesData, refetch: refetchClasses } = useQuery(
-  CLASSES_QUERY,
-  {
-    datasetId,
-  }
-)
-
-const { mutate: insertClass } = useMutation(INSERT_CLASS_MUTATION)
+const { 
+  image, 
+  classes, 
+  segmentations,
+  refetchClasses,
+  refetchSegmentations,
+  insertClass 
+} = useLabelQueries({ userId, imageId, datasetId })
 
 // Computed properties
-const image = computed(() => imageData.value?.image)
-const segmentations = computed(
-  () => segmentationData.value?.labelSegmentations || []
-)
 const imageWidth = computed(() => image.value?.width)
-
+const classesData = computed(() => ({ classes: classes.value }))
 const { classItems, classIdToName } = useClassOptions(classesData)
 
 const wrappedRefetchSegmentations = async () => {
@@ -338,24 +267,20 @@ const saveCurrentModifications = async () => {
   await wrappedRefetchSegmentations()
 }
 
-// Create new class
-const createNewClass = async () => {
-  if (!newClassName.value) return
-
-  isAddingClass.value = true
-  try {
-    await insertClass({
-      datasetId,
-      name: newClassName.value,
-    })
-    newClassName.value = ''
-    await refetchClasses()
-  } catch (error) {
-    console.error('Failed to create class:', error)
-  } finally {
-    isAddingClass.value = false
-  }
+const wrappedRefetchClasses = async () => {
+  const result = await refetchClasses({ datasetId });
+  return result || {};
 }
+
+const { 
+  newClassName, 
+  isAddingClass, 
+  createNewClass 
+} = useClassManagement({
+  insertClass,
+  refetchClasses: wrappedRefetchClasses,
+  datasetId
+})
 
 // Lifecycle hooks
 onMounted(async () => {

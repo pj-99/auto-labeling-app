@@ -1,6 +1,7 @@
 
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
+import { useUser } from '~/composables/useUser'
 
 const colorMode = useColorMode()
 
@@ -23,6 +24,8 @@ const showBackButton = computed(() => {
     (route.path.startsWith('/dataset/') && route.params.id)
   )
 })
+
+useUser()
 </script>
 
 <template>
@@ -67,12 +70,32 @@ const showBackButton = computed(() => {
 
         <!-- Right side - User menu -->
         <div class="flex items-center">
-          <UButton variant="ghost" icon="i-heroicons-user-circle" />
+              <SignedOut>
+                <SignInButton
+                  mode="modal"
+                  after-sign-in-url="/"
+                  :appearance="{
+                    elements: {
+                      button: 'bg-green-500 hover:bg-green-600 text-white rounded px-3 py-2',
+                    },
+                  }"
+                >
+                <UButton
+                  label="Sign In or Sign Up"
+                  color="primary"
+                  variant="soft"
+                />
+                </SignInButton>
+              </SignedOut>
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
           <!-- Color mode toggle -->
           <UButton
             :icon="isDark ? 'i-lucide-moon' : 'i-lucide-sun'"
             color="neutral"
             variant="ghost"
+            class="ml-2"
             @click="isDark = !isDark"
           />
         </div>

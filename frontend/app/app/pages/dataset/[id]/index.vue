@@ -4,6 +4,9 @@ import { useDatasetsStore } from '@/store/datasets'
 import EmptyStateFallback from '~/components/dataset/EmptyStateFallback.vue'
 import FileUploadDropzone from '~/components/dataset/FileUploadDropzone.vue'
 import ImageGrid from '~/components/dataset/ImageGrid.vue'
+import { useLabelQuery } from '~/composables/useLabelMap'
+import SearchModal from '~/components/dataset/SearchModal.vue'
+
 
 const route = useRoute()
 const datasetId = route.params.id
@@ -21,6 +24,13 @@ const acceptedExtensions = '.jpg,.jpeg,.png'
 
 const { fetchLabelsWithClassNames } = useLabelQuery()
 const { dataset, loading, refetch } = useDataset(userId, datasetId as string)
+
+const isSearchModalOpen = ref(false)
+
+const openSearchModal = () => {
+  isSearchModalOpen.value = true
+}
+
 
 // Stores labels of any type (Detection or Segmentation)
 const imageLabelsMap = ref<Map<string, LabelDetection[] | LabelSegmentation[]>>(new Map())
@@ -115,23 +125,30 @@ const handleValidationError = (invalidFiles: File[]) => {
     icon: 'i-heroicons-exclamation-triangle',
   })
 }
+
+const collapsible = ref(false)
+
+const toggleCollapsible = () => {
+  collapsible.value = !collapsible.value
+}
 </script>
 
 <template>
   <div class="max-w-[90%] mx-auto sm:px-6 lg:px-8">
     <!-- Header Section -->
     <div class="mb-8">
-      <div class="mb-8">
-        <div class="flex items-center gap-3 mb-2">
-          <div class="flex items-baseline gap-2">
-            <h1 class="text-2xl font-semibold">
-              {{ dataset?.name }}
-            </h1>
-            <DatasetBadge :training-type="dataset?.trainingType" />
+    <UCard class="mb-4">
+      <template #header>
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-semibold">{{ dataset?.name }}</h1>
+            <p class="text-muted text-sm">Upload and manage images in this dataset</p>
           </div>
+          <DatasetBadge :training-type="dataset?.trainingType" />
         </div>
-        <p class="text-muted">Upload and manage images in this dataset</p>
-        <div class="mt-2 flex items-center gap-2">
+      </template>
+
+        <div class="flex flex-wrap items-center gap-3">
           <UBadge variant="soft" size="md">
             {{ dataset?.images?.length || 0 }} images
           </UBadge>
@@ -139,17 +156,35 @@ const handleValidationError = (invalidFiles: File[]) => {
             Created {{ formatDate(dataset?.createdAt) }}
           </UBadge>
         </div>
-      </div>
+    </UCard>
+      <!-- Image Searching Button -->
+      <div class="mt-2 flex gap-4">
+        <UButton
+          label="Image Searching"
+          icon="i-heroicons-magnifying-glass"
+          color="secondary"
+          variant="outline"
+          class="flex-1"
+          @click="openSearchModal"
+        />
 
-      <!-- Upload Section -->
-      <UCollapsible class="flex flex-col">
         <UButton
           label="Upload Images"
           color="primary"
-          class="w-full"
+          class="flex-1"
+          icon="i-heroicons-arrow-up-on-square"
           trailing-icon="i-lucide-chevron-down"
-          block
+          @click="toggleCollapsible"
         />
+      </div>
+
+      
+
+      <!-- Upload Section -->
+      <UCollapsible 
+      v-model:open="collapsible"
+      class="flex flex-col" 
+      >
         <template #content>
           <div class="mb-12 mt-4">
             <FileUploadDropzone
@@ -198,6 +233,7 @@ const handleValidationError = (invalidFiles: File[]) => {
           description="Images will appear here once uploaded"
           icon="i-heroicons-cube-transparent"
         />
+        <SearchModal v-model:open="isSearchModalOpen" />
       </div>
     </div>
   </div>
