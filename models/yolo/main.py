@@ -13,11 +13,10 @@ servers = os.environ.get("NATS_URL", "nats://localhost:4222").split(",")
 async def main():
     nc: Client = await nats.connect(servers)
 
+    print("Starting NATS subscriber...")
     await nc.subscribe("predict.dataset.yolo", cb=on_predict_dataset)
-
     await nc.subscribe("predict.image.yolo", cb=on_predict_image)
-
-    print("All subscribed")
+    print("Subscribed to predict.dataset.yolo and predict.image.yolo")
 
     shutdown_event = asyncio.Event()
 
