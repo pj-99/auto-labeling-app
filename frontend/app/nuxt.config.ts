@@ -9,6 +9,7 @@ export default defineNuxtConfig({
     '@nuxt/image',
     '@nuxtjs/apollo',
     '@pinia/nuxt',
+    '@clerk/nuxt',
   ],
 
   css: ['~/assets/css/main.css'],

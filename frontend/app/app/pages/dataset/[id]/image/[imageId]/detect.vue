@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { useQuery, useMutation } from '@vue/apollo-composable'
-import { gql } from 'graphql-tag'
 import { Canvas as FabricCanvas, FabricImage } from 'fabric'
 import { useLabel } from '~/composables/useLabel'
 import { useSAMBbox } from '~/composables/useSAMBox'
@@ -18,7 +16,6 @@ import ClassPanel from '~/components/labeling/ClassPanel.vue'
 import {
   useAutoLabelingMutation,
   SAM_MUTATION,
-  PREDICT_GDINO_ON_IMAGE_MUTATION
 } from '~/composables/useAutoLabelingQuery'
 import LabelList from '~/components/labeling/LabelList.vue'
 
@@ -34,8 +31,6 @@ const fabricCanvas = ref<FabricCanvas | null>(null)
 const drawingMode = ref<'none' | 'box' | 'segmentation'>('none')
 const isSaving = ref(false)
 const selectedClass = ref<number | undefined>(undefined)
-const newClassName = ref('')
-const isAddingClass = ref(false)
 
 const { mutate: predictSam } = useAutoLabelingMutation(SAM_MUTATION)
 const toast = useToast()
@@ -43,86 +38,18 @@ const toast = useToast()
 // TODO: Replace with actual user ID from auth system
 const userId = '123e4567-e89b-12d3-a456-426614174000'
 
-// GraphQL Queries
-const IMAGE_QUERY = gql`
-  query GetImage($userId: UUID!, $imageId: UUID!) {
-    image(userId: $userId, imageId: $imageId) {
-      id
-      imageName
-      imageUrl
-      width
-      height
-      createdAt
-      updatedAt
-      caption
-      createdBy
-    }
-  }
-`
+const {
+  image,
+  classes,
+  detections: labels,
+  refetchClasses,
+  refetchDetections: refetchLabels,
+  insertClass,
+} = useLabelQueries({ userId, imageId, datasetId })
 
-const LABEL_DETECTIONS_QUERY = gql`
-  query GetLabelDetections($datasetId: UUID!, $imageId: UUID!) {
-    labelDetections(datasetId: $datasetId, imageId: $imageId) {
-      id
-      classId
-      xCenter
-      yCenter
-      width
-      height
-    }
-  }
-`
-
-const CLASSES_QUERY = gql`
-  query GetClasses($datasetId: UUID!) {
-    classes(datasetId: $datasetId) {
-      id
-      name
-      createdAt
-      updatedAt
-    }
-  }
-`
-
-const INSERT_CLASS_MUTATION = gql`
-  mutation InsertClass($datasetId: UUID!, $name: String!) {
-    insertClass(datasetId: $datasetId, name: $name) {
-      id
-      name
-      createdAt
-      updatedAt
-    }
-  }
-`
-
-// Query hooks
-const { result: imageData } = useQuery(IMAGE_QUERY, {
-  userId,
-  imageId,
-})
-
-const { result: labelData, refetch: refetchLabels } = useQuery(
-  LABEL_DETECTIONS_QUERY,
-  {
-    datasetId,
-    imageId,
-  }
-)
-
-const { result: classesData, refetch: refetchClasses } = useQuery(
-  CLASSES_QUERY,
-  {
-    datasetId,
-  }
-)
-
-const { mutate: insertClass } = useMutation(INSERT_CLASS_MUTATION)
-const { mutate: predictGDINOOnImage } = useAutoLabelingMutation(PREDICT_GDINO_ON_IMAGE_MUTATION)
-
-// Computed properties
-const image = computed(() => imageData.value?.image)
-const labels = computed(() => labelData.value?.labelDetections || [])
 const imageWidth = computed(() => image.value?.width)
+
+const classesData = computed(() => ({ classes: classes.value }))
 
 const { classItems, classIdToName } = useClassOptions(classesData)
 
@@ -171,72 +98,38 @@ const {
   },
   toast
 )
-// Add YOLO loading state
-const isYoloLoading = ref(false)
 
-// Add YOLO automatic labeling handler function
+const { isGDINOLoading: isYoloLoading, runGDINO } = useGDINO()
+
 const handleRunAutoLabeling = async () => {
   if (selectedModel.value !== 'YOLO(coco)') return
-
-  console.log(imageId)
-  isYoloLoading.value = true
-  try {
-    const result = await predictGDINOOnImage({
-      imageId,
-      datasetId,
-      userId
-    })
-    
-    console.log('YOLO result:', result)
-    
-    const jobId = result?.data?.predictYoloOnImage?.jobId
-    const errorMessage = result?.data?.predictYoloOnImage?.message
-    
-    if (jobId) {
-      toast.add({
-        title: 'YOLO inference started',
-        icon: 'i-heroicons-arrow-path',
-        color: 'success'
-      })
-      
-      // Wait for inference to complete then reload label data
-      setTimeout(async () => {
-        await wrappedRefetchLabels()
-        toast.add({
-          title: 'YOLO inference completed',
-          icon: 'i-heroicons-check-circle',
-          description: 'Please check the new detection results',
-          color: 'success'
-        })
-            isYoloLoading.value = false
-            // Watch labels to update canvas
-
-            if (!fabricCanvas.value) return
-            fabricCanvas.value.getObjects('rect').forEach((obj) => {
-              fabricCanvas.value!.remove(obj)
-            })
-            labels.value.forEach((label: LabelDetection) => {
-              addExistingBox(label)
-            })
-            fabricCanvas.value.renderAll()
-      }, 10000) // Reload after 10 seconds
-      
-    } else if (errorMessage) {
-      toast.add({
-        title: 'Inference failed',
-        description: errorMessage,
-        color: 'error'
-      })
+  
+  await runGDINO({
+    imageId,
+    datasetId,
+    userId,
+    onComplete: async () => {
+      await refetchLabels();
+      refreshCanvasLabels();
+      return;
     }
-  } catch (error) {
-    console.error('YOLO prediction failed:', error)
-    toast.add({
-      title: 'Inference request failed',
-      description: 'Please check your network connection and try again later',
-      color: 'error'
-    })
-  }
+  })
 }
+// Create a wrapper for refetchClasses to match the expected signature
+const wrappedRefetchClasses = async () => {
+  const result = await refetchClasses({ datasetId });
+  return result || {};
+}
+
+const { 
+  newClassName, 
+  isAddingClass, 
+  createNewClass 
+} = useClassManagement({
+  insertClass,
+  refetchClasses: wrappedRefetchClasses,
+  datasetId
+})
 
 // Canvas utilities
 function updateBoxesSelectability() {
@@ -445,25 +338,6 @@ const saveCurrentModifications = async () => {
   }
 }
 
-// Create new class
-const createNewClass = async () => {
-  if (!newClassName.value) return
-
-  isAddingClass.value = true
-  try {
-    await insertClass({
-      datasetId,
-      name: newClassName.value,
-    })
-    newClassName.value = ''
-    await refetchClasses()
-  } catch (error) {
-    console.error('Failed to create class:', error)
-  } finally {
-    isAddingClass.value = false
-  }
-}
-
 // Lifecycle hooks
 onMounted(async () => {
   await nextTick()
@@ -523,6 +397,21 @@ watch(drawingMode, (newMode) => {
     }
   }
 })
+
+const refreshCanvasLabels = () => {
+  if (!fabricCanvas.value) return
+  
+  fabricCanvas.value.getObjects('rect').forEach((obj) => {
+    fabricCanvas.value!.remove(obj)
+  })
+  
+  labels.value.forEach((label: LabelDetection) => {
+    addExistingBox(label)
+  })
+  
+  fabricCanvas.value.renderAll()
+}
+
 </script>
 
 <template>
