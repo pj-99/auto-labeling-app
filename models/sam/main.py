@@ -64,7 +64,7 @@ async def main():
     print("Starting NATS subscriber...")
     await nats_client.subscribe("predict.image.sam", cb=handle_sam)
     await nats_client.flush()
-    print("Subscribed")
+    print("Subscribed to predict.image.sam")
 
     shutdown_event = asyncio.Event()
 
