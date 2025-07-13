@@ -22,17 +22,11 @@ export default defineNuxtConfig({
   apollo: {
     clients: {
       default: {
-        httpEndpoint: 'http://localhost:8000/graphql',
+        httpEndpoint: process.env.NUXT_APOLLO_DEFAULT_ENDPOINT || 'http://localhost:8000/graphql',
       },
       autoLabeling: {
-        httpEndpoint: 'http://localhost:8080/graphql',
+        httpEndpoint: process.env.NUXT_APOLLO_AUTO_LABELING_ENDPOINT || 'http://localhost:8080/graphql',
       },
-    },
-  },
-
-  runtimeConfig: {
-    public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000',
     },
   },
 })
