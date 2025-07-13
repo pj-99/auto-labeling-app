@@ -53,3 +53,7 @@ jobs:
         run: |-
           docker compose build models-yolo
           docker compose push models-yolo
+
+          IMAGE_NAME="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/auto-labeling-app/models-yolo"
+          docker tag ${IMAGE_NAME}:${TAG} ${IMAGE_NAME}:latest
+          docker push ${IMAGE_NAME}:latest

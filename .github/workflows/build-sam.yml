@@ -53,3 +53,7 @@ jobs:
         run: |-
           docker compose build models-sam
           docker compose push models-sam
+
+          IMAGE_NAME="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/auto-labeling-app/models-sam"
+          docker tag ${IMAGE_NAME}:${TAG} ${IMAGE_NAME}:latest
+          docker push ${IMAGE_NAME}:latest
