@@ -12,8 +12,20 @@ dependencies = [
     "pymongo>=4.13.2",
     "regex>=2024.11.6",
     "tqdm>=4.67.1",
-    "ultralytics>=8.3.163",
+    "ultralytics>=8.3.164",
 ]
 
 [tool.uv.sources]
 clip = { git = "https://github.com/openai/CLIP.git", rev = "dcba3cb2e2827b402d2701e7e1c7d9fed8a20ef1" }
+
+torch = [
+    { index = "pytorch-cpu" },
+]
+torchvision = [
+    { index = "pytorch-cpu" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
