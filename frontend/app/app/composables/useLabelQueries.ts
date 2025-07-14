@@ -1,11 +1,11 @@
 import { gql } from 'graphql-tag'
 import { useQuery, useMutation } from '@vue/apollo-composable'
 
-export const useLabelQueries = (params: {
+export const useLabelQueries = (params: ComputedRef<{
   userId: string
   imageId: string
   datasetId: string
-}) => {
+}>) => {
   // GraphQL Definitions
   const IMAGE_QUERY = gql`
     query GetImage($userId: UUID!, $imageId: UUID!) {
@@ -69,31 +69,43 @@ export const useLabelQueries = (params: {
   `
 
   // Query Hooks
-  const { result: imageData } = useQuery(IMAGE_QUERY, {
-    userId: params.userId,
-    imageId: params.imageId,
+  const { result: imageData, refetch: refetchImage } = useQuery(IMAGE_QUERY,
+    computed(() => ({
+      userId: params.value.userId,
+      imageId: params.value.imageId,
+    })), {
+    enabled: computed(() => !!params.value.userId && !!params.value.imageId)
   })
 
   const { result: classesData, refetch: refetchClasses } = useQuery(
     CLASSES_QUERY,
+    computed(() => ({
+      datasetId: params.value.datasetId,
+    })),
     {
-      datasetId: params.datasetId,
+      enabled: computed(() => !!params.value.userId && !!params.value.datasetId),
     }
   )
 
   const { result: segmentationData, refetch: refetchSegmentations } = useQuery(
     LABEL_SEGMENTATIONS_QUERY,
+    computed(() => ({
+      datasetId: params.value.datasetId,
+      imageId: params.value.imageId,
+    })),
     {
-      datasetId: params.datasetId,
-      imageId: params.imageId,
+      enabled: computed(() => !!params.value.userId && !!params.value.datasetId && !!params.value.imageId),
     }
   )
 
   const { result: detectionData, refetch: refetchDetections } = useQuery(
     LABEL_DETECTIONS_QUERY,
+    computed(() => ({
+      datasetId: params.value.datasetId,
+      imageId: params.value.imageId,
+    })),
     {
-      datasetId: params.datasetId,
-      imageId: params.imageId,
+      enabled: computed(() => !!params.value.userId && !!params.value.datasetId && !!params.value.imageId),
     }
   )
 
@@ -113,6 +125,7 @@ export const useLabelQueries = (params: {
     segmentations,
     detections,
     // Refetch functions
+    refetchImage,
     refetchClasses,
     refetchSegmentations,
     refetchDetections,
