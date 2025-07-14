@@ -6,6 +6,8 @@ import FileUploadDropzone from '~/components/dataset/FileUploadDropzone.vue'
 import ImageGrid from '~/components/dataset/ImageGrid.vue'
 import { useLabelQuery } from '~/composables/useLabelMap'
 import SearchModal from '~/components/dataset/SearchModal.vue'
+import { useUserStore } from '~/store/user'
+
 
 
 const route = useRoute()
@@ -14,16 +16,16 @@ const datasetId = route.params.id
 const toast = useToast()
 const datasetsStore = useDatasetsStore()
 const { uploading, uploadImages } = useImageUpload()
+const userStore = useUserStore()
+const userId = computed(() => userStore.userId)
 
-// TODO: Replace with actual user ID from the auth system
-const userId = '123e4567-e89b-12d3-a456-426614174000'
 
 // Accepted image file types
 const acceptedImageTypes = ['image/jpeg', 'image/jpg', 'image/png']
 const acceptedExtensions = '.jpg,.jpeg,.png'
 
 const { fetchLabelsWithClassNames } = useLabelQuery()
-const { dataset, loading, refetch } = useDataset(userId, datasetId as string)
+const { dataset, loading, refetch } = useSingleDataset(datasetId as string, userId.value)
 
 const isSearchModalOpen = ref(false)
 
@@ -47,7 +49,7 @@ const formatDate = (dateString: string) => {
 
 // Handle selected files
 const processFiles = async (files: FileList | File[]) => {
-  await uploadImages(files, datasetId as string, userId, () => {
+  await uploadImages(files, datasetId as string, userId.value, () => {
     refetch()
   })
 }

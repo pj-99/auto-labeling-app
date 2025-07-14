@@ -8,7 +8,6 @@ const LOGIN_MUTATION = gql`
     login(clerkUserId: $clerkUserId) {
       id
       clerkUserId
-      createdAt
     }
   }
 `
