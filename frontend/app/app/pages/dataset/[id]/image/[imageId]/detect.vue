@@ -382,9 +382,9 @@ const saveCurrentModifications = async () => {
 // Lifecycle hooks
 onMounted(async () => {
   await nextTick()
+  window.addEventListener('keydown', handleKeyDown)
   if (image.value) {
     initCanvas()
-    window.addEventListener('keydown', handleKeyDown)
   }
 })
 

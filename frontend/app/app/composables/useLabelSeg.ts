@@ -120,7 +120,7 @@ export const useLabelSeg = (
       polygon.editing = !polygon.editing
       if (polygon.editing) {
         polygon.cornerStyle = 'circle'
-        polygon.cornerColor =  'teal'
+        polygon.cornerColor = 'teal'
         polygon.cornerStrokeColor = 'white'
         polygon.cornerSize = 10
         polygon.hasBorders = false
@@ -318,9 +318,12 @@ export const useLabelSeg = (
     })
 
     const labelSegmentation = {
-      id: polygon.data?.labelId,
+      id: null as string | null,
       classId: polygon.data?.classId || selectedClassId?.value || '1',
       mask: normalizedPoints,
+    }
+    if (polygon.data?.labelId && polygon.data?.labelId !== '') {
+      labelSegmentation.id = polygon.data?.labelId
     }
 
     try {
