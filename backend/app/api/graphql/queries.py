@@ -5,7 +5,7 @@ import strawberry
 from api.deps import get_db
 from api.graphql.context import Context
 from api.graphql.schema import Class, Dataset, Image, LabelDetection, LabelSegmentation
-from crud.dataset import get_classes_by_dataset_id, get_datasets_by_user_id
+from crud.dataset import get_classes_by_dataset_id, get_dataset, get_datasets_by_user_id
 from crud.image import get_image
 from crud.label import get_label_detections, get_label_segmentations
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -24,6 +24,16 @@ class Query:
         # Can we use dependency injection?
         db: AsyncIOMotorDatabase = await anext(get_db())
         return await get_datasets_by_user_id(db, user_id)
+
+    @strawberry.field
+    async def dataset(
+        self, info: Info[Context], dataset_id: UUID
+    ) -> typing.Union[Dataset, None]:
+        if not info.context.user:
+            print("No user found")
+            return None
+        db: AsyncIOMotorDatabase = await anext(get_db())
+        return await get_dataset(db, dataset_id, info.context.user.id)
 
     @strawberry.field
     async def image(self, user_id: UUID, image_id: UUID) -> Image:

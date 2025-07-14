@@ -1,17 +1,9 @@
 from functools import cached_property
 from typing import Optional
-from uuid import UUID
 
-import strawberry
 from core import auth
-from fastapi import FastAPI
-from strawberry.fastapi import BaseContext, GraphQLRouter
-
-
-@strawberry.type
-class User:
-    id: UUID
-    clerk_id: str
+from models.user import User
+from strawberry.fastapi import BaseContext
 
 
 class Context(BaseContext):
@@ -24,8 +16,8 @@ class Context(BaseContext):
             if not token:
                 return None
             token = token.split(" ")[1]
-            user_id, clerk_id = auth.get_current_user_from_token(token)
-            return User(id=user_id, clerk_id=clerk_id)
+            user_id, clerk_user_id = auth.get_current_user_from_token(token)
+            return User(id=user_id, clerk_user_id=clerk_user_id)
         except Exception as e:
             print(e)
             return None

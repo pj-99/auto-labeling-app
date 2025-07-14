@@ -98,6 +98,10 @@ class Mutation:
         width: int,
         height: int,
     ) -> Image:
+
+        if image_type not in ["image/jpeg", "image/png", "image/jpg"]:
+            raise ValueError("Invalid image type")
+
         db: AsyncIOMotorDatabase = await anext(get_db())
         return await insert_image_to_dataset(
             db,
