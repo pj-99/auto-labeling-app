@@ -27,17 +27,17 @@ const DATASET_QUERY = gql`
 `
 
 // Main composable
-export const useDataset = (userId: string, datasetId?: string) => {
+export const useDataset = (userId: Ref<string | undefined>, datasetId?: string) => {
   const { result, loading, error, refetch } = useQuery(
     DATASET_QUERY,
     { userId },
     {
-      enabled: computed(() => !!userId),
+      enabled: computed(() => !!userId.value),
     }
   )
 
   const datasets = computed(() => result.value?.datasets || [])
-  
+
   const dataset = computed(() => {
     if (!datasetId) return null
     return datasets.value.find((d: Dataset) => d.id === datasetId)
@@ -55,9 +55,9 @@ export const useDataset = (userId: string, datasetId?: string) => {
 // Pagination composable
 export const useDatasetPagination = (dataset: Ref<Dataset | null>, pageSize = 12) => {
   const currentPage = ref(1)
-  
+
   const totalImages = computed(() => dataset.value?.images?.length || 0)
-  
+
   const paginatedImages = computed(() => {
     if (!dataset.value?.images) return []
     const start = (currentPage.value - 1) * pageSize

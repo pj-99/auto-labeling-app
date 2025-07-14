@@ -1,52 +1,31 @@
 
 <script setup lang="ts">
-import { useQuery } from '@vue/apollo-composable'
-import { gql } from 'graphql-tag'
 import CreateDatasetModal from '@/components/dataset/CreateDatasetModal.vue'
-import type { Dataset  } from '~/types/dataset'
 import { useDatasetsStore } from '@/store/datasets'
+import { useUserStore } from '~/store/user'
+import { useDataset } from '~/composables/useDataset'
 
 const datasetsStore = useDatasetsStore()
+const userStore = useUserStore()
+const userId = computed(() => userStore.userId)
+
 definePageMeta({
   layout: 'default',
 })
 
-interface DatasetsQueryResult {
-  datasets: Dataset[]
-}
-
-// GraphQL Queries
-const DATASETS_QUERY = gql`
-  query GetDatasets($userId: UUID!) {
-    datasets(userId: $userId) {
-      id
-      name
-      createdAt
-      updatedAt
-      createdBy
-      trainingType
-      images {
-        id
-      }
-    }
-  }
-`
-
-// TODO: Replace with actual user ID from auth system
-const userId = '123e4567-e89b-12d3-a456-426614174000'
-
 const {
-  result: datasetsData,
+  datasets: datasetsData,
   loading: datasetsLoading,
-  refetch: refresh,
-} = useQuery<DatasetsQueryResult>(DATASETS_QUERY, {
-  userId,
-})
+  refetch,
+} = useDataset(userId)
 
-const datasets = computed(() => {
-  datasetsStore.setDatasets(datasetsData.value?.datasets || [])
-  return datasetsData.value?.datasets || []
-})
+const datasets = computed(() => datasetsData.value || [])
+
+watch(datasetsData, (newDatasets) => {
+  if (newDatasets) {
+    datasetsStore.setDatasets(newDatasets)
+  }
+}, { immediate: true })
 
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleString()
@@ -85,7 +64,7 @@ const datasetActions = (datasetId: string) => [
 
     <!-- Create Dataset Section -->
     <div class="mb-8">
-      <CreateDatasetModal @refresh="refresh" />
+      <CreateDatasetModal @refresh="refetch" />
     </div>
 
     <!-- Datasets List Section -->

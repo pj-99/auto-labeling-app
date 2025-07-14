@@ -5,7 +5,7 @@ import type { DatasetTrainingType } from '~/types/dataset'
 
 interface Props {
   images: Image[]
-  labels: Map<string, LabelDetection[]>
+  labels: Map<string, LabelDetection[] | LabelSegmentation[]>
   datasetId: string
   trainingType: DatasetTrainingType
   columns?: {

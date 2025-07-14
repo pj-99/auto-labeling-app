@@ -1,6 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   devtools: { enabled: true },
+  ssr: false,
 
   modules: [
     '@nuxt/ui',
@@ -24,9 +25,13 @@ export default defineNuxtConfig({
     clients: {
       default: {
         httpEndpoint: process.env.NUXT_APOLLO_DEFAULT_ENDPOINT || 'http://localhost:8000/graphql',
+        authType: 'Bearer',
+        authHeader: 'Authorization',
       },
       autoLabeling: {
         httpEndpoint: process.env.NUXT_APOLLO_AUTO_LABELING_ENDPOINT || 'http://localhost:8080/graphql',
+        authType: 'Bearer',
+        authHeader: 'Authorization',
       },
     },
   },

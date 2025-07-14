@@ -5,6 +5,7 @@ import { gql } from 'graphql-tag'
 import * as v from 'valibot'
 import type { FormSubmitEvent } from '@nuxt/ui'
 import { DatasetTrainingType } from '~/types/dataset'
+import { useUserStore } from '~/store/user'
 
 // Form Schema
 const createDatasetSchema = v.object({
@@ -24,6 +25,8 @@ const isCreating = ref(false)
 const showSuccess = ref(false)
 
 const toast = useToast()
+const userStore = useUserStore()
+const userId = computed(() => userStore.userId)
 
 const CREATE_DATASET_MUTATION = gql`
   mutation CreateDataset(
@@ -45,9 +48,6 @@ const CREATE_DATASET_MUTATION = gql`
   }
 `
 
-// TODO: Replace with actual user ID from auth system
-const userId = '123e4567-e89b-12d3-a456-426614174000'
-
 const { mutate: createDatasetMutation } = useMutation(CREATE_DATASET_MUTATION)
 
 const emit = defineEmits<{
@@ -55,11 +55,21 @@ const emit = defineEmits<{
 }>()
 
 async function onSubmit(event: FormSubmitEvent<CreateDatasetSchema>) {
+  if (!userId.value) {
+    toast.add({
+      title: 'Authentication Error',
+      description: 'You must be logged in to create a dataset.',
+      color: 'error',
+      icon: 'i-heroicons-exclamation-triangle',
+    })
+    return
+  }
+
   isCreating.value = true
 
   try {
     await createDatasetMutation({
-      userId,
+      userId: userId.value,
       name: event.data.name,
       trainingType: event.data.type,
     })
