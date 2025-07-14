@@ -25,7 +25,7 @@ const acceptedImageTypes = ['image/jpeg', 'image/jpg', 'image/png']
 const acceptedExtensions = '.jpg,.jpeg,.png'
 
 const { fetchLabelsWithClassNames } = useLabelQuery()
-const { dataset, loading, refetch } = useSingleDataset(datasetId as string, userId.value)
+const { dataset, loading, refetch } = useSingleDataset(datasetId as string, userId)
 
 const isSearchModalOpen = ref(false)
 

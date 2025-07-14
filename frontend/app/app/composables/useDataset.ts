@@ -27,7 +27,7 @@ const DATASET_QUERY = gql`
 `
 
 // Main composable
-export const useDataset = (userId: Ref<string | undefined>, datasetId?: string) => {
+export const useDataset = (userId: Ref<string | undefined>) => {
   const { result, loading, error, refetch } = useQuery(
     DATASET_QUERY,
     { userId },
@@ -38,13 +38,7 @@ export const useDataset = (userId: Ref<string | undefined>, datasetId?: string) 
 
   const datasets = computed(() => result.value?.datasets || [])
 
-  const dataset = computed(() => {
-    if (!datasetId) return null
-    return datasets.value.find((d: Dataset) => d.id === datasetId)
-  })
-
   return {
-    dataset,
     datasets,
     loading,
     error,

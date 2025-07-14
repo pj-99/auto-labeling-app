@@ -26,13 +26,15 @@ const DATASET_QUERY = gql`
   }
 `
 
-// Main composable
-export const useSingleDataset = (datasetId?: string, userId?: string) => {
+// Main composable  
+export const useSingleDataset = (datasetId?: string, userId?: Ref<string>) => {
+
+
   const { result, loading, error, refetch } = useQuery(
     DATASET_QUERY,
     { datasetId },
     {
-      enabled: computed(() => !!userId),
+      enabled: computed(() => !!userId?.value),
     }
   )
 
