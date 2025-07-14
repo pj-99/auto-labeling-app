@@ -1,6 +1,5 @@
-import os
 from datetime import datetime
-from typing import Union
+from typing import List, Union
 from uuid import UUID, uuid4
 
 import bson
@@ -32,6 +31,7 @@ async def insert_image_to_dataset(
         image_url = f"https://storage.googleapis.com/{settings.GCP_STORAGE_BUCKET}/{gcs_file_name}"
         # Insert to images collection
         image_id = uuid4()
+
         image = Image(
             id=image_id,
             image_name=image_name,
@@ -41,8 +41,7 @@ async def insert_image_to_dataset(
             image_url=image_url,
             created_by=user_id,
         )
-        image_dict = image.model_dump(mode="json")
-        image_dict["id"] = bson.Binary.from_uuid(image_id)
+        image_dict = image.model_dump(mode="python")
         await db["images"].insert_one(image_dict)
 
         # Update the dataset collection
@@ -214,11 +213,14 @@ async def delete_class(
 
 async def get_classes_by_dataset_id(
     db: AsyncIOMotorDatabase, dataset_id: UUID
-) -> list[Class]:
+) -> Union[List[Class], None]:
     if not await check_dataset_exists(db, dataset_id):
-        raise ValueError("Dataset not found")
+        return None
 
     result = await db["datasets"].find_one({"id": dataset_id})
+    if not result:
+        return None
+
     classes = result.get("classes", [])
     return [Class(**cls) for cls in classes]
 

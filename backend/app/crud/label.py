@@ -83,7 +83,7 @@ async def delete_label_detections(db: AsyncIOMotorDatabase, label_id: UUID) -> b
 # Label Segmentation
 async def get_label_segmentations(
     db: AsyncIOMotorDatabase, dataset_id: UUID, image_id: UUID
-) -> LabelSegmentation:
+) -> List[LabelSegmentation]:
     collection = db["label_segmentations"]
     res = await collection.find(
         {"dataset_id": dataset_id, "image_id": image_id}

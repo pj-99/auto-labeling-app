@@ -1,4 +1,5 @@
 import typing
+from typing import Union
 from uuid import UUID
 
 import strawberry
@@ -17,9 +18,10 @@ class Query:
     @strawberry.field
     async def datasets(
         self, info: Info[Context], user_id: UUID
-    ) -> typing.List[Dataset]:
+    ) -> Union[typing.List[Dataset], None]:
         if not info.context.user:
-            return []
+            # TODO: universal permission handling
+            return None
         # TODO: think about this
         # Can we use dependency injection?
         db: AsyncIOMotorDatabase = await anext(get_db())
@@ -30,31 +32,48 @@ class Query:
         self, info: Info[Context], dataset_id: UUID
     ) -> typing.Union[Dataset, None]:
         if not info.context.user:
-            print("No user found")
             return None
         db: AsyncIOMotorDatabase = await anext(get_db())
         return await get_dataset(db, dataset_id, info.context.user.id)
 
     @strawberry.field
-    async def image(self, user_id: UUID, image_id: UUID) -> Image:
+    async def image(
+        self, info: Info[Context], user_id: UUID, image_id: UUID
+    ) -> Union[Image, None]:
         db: AsyncIOMotorDatabase = await anext(get_db())
+        if not info.context.user:
+            return None
+
+        if info.context.user.id != user_id:
+            return None
+
         return await get_image(db, user_id, image_id)
 
     @strawberry.field
-    async def classes(self, dataset_id: UUID) -> list[Class]:
+    async def classes(
+        self, info: Info[Context], dataset_id: UUID
+    ) -> Union[typing.List[Class], None]:
+        if not info.context.user:
+            return None
         db: AsyncIOMotorDatabase = await anext(get_db())
         return await get_classes_by_dataset_id(db, dataset_id)
 
     @strawberry.field
     async def label_detections(
-        self, dataset_id: UUID, image_id: UUID
-    ) -> list[LabelDetection]:
+        self, info: Info[Context], dataset_id: UUID, image_id: UUID
+    ) -> Union[typing.List[LabelDetection], None]:
+        if not info.context.user:
+            return None
+
         db: AsyncIOMotorDatabase = await anext(get_db())
         return await get_label_detections(db, dataset_id, image_id)
 
     @strawberry.field
     async def label_segmentations(
-        self, dataset_id: UUID, image_id: UUID
-    ) -> list[LabelSegmentation]:
+        self, info: Info[Context], dataset_id: UUID, image_id: UUID
+    ) -> Union[typing.List[LabelSegmentation], None]:
+        if not info.context.user:
+            return None
+
         db: AsyncIOMotorDatabase = await anext(get_db())
         return await get_label_segmentations(db, dataset_id, image_id)
