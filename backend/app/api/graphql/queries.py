@@ -3,17 +3,23 @@ from uuid import UUID
 
 import strawberry
 from api.deps import get_db
+from api.graphql.context import Context
 from api.graphql.schema import Class, Dataset, Image, LabelDetection, LabelSegmentation
 from crud.dataset import get_classes_by_dataset_id, get_datasets_by_user_id
 from crud.image import get_image
 from crud.label import get_label_detections, get_label_segmentations
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from strawberry.types import Info
 
 
 @strawberry.type
 class Query:
     @strawberry.field
-    async def datasets(self, user_id: UUID) -> typing.List[Dataset]:
+    async def datasets(
+        self, info: Info[Context], user_id: UUID
+    ) -> typing.List[Dataset]:
+        if not info.context.user:
+            return []
         # TODO: think about this
         # Can we use dependency injection?
         db: AsyncIOMotorDatabase = await anext(get_db())

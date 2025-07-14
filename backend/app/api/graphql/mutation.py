@@ -3,7 +3,16 @@ from uuid import UUID
 
 import strawberry
 from api.deps import get_db
-from api.graphql.schema import Class, Dataset, Image, LabelDetection, LabelSegmentation
+from api.graphql.schema import (
+    Class,
+    Dataset,
+    Image,
+    LabelDetection,
+    LabelSegmentation,
+    User,
+)
+from clerk_backend_api import Clerk
+from core.config import Settings
 from crud.dataset import (
     create_dataset,
     delete_class,
@@ -16,6 +25,7 @@ from crud.label import (
     upsert_label_detections,
     upsert_label_segmentations,
 )
+from crud.user import create_user_if_not_exists
 from models.dataset import TrainingType
 from models.label_detection import LabelDetectionInput as LabelDetectionInputModel
 from models.label_segmentation import (
@@ -55,6 +65,20 @@ class DeleteLabelError:
 
 @strawberry.type
 class Mutation:
+
+    @strawberry.mutation
+    async def login(self, clerk_user_id: str) -> User:
+        db: AsyncIOMotorDatabase = await anext(get_db())
+
+        isNewUser, user = await create_user_if_not_exists(db, clerk_user_id)
+        if isNewUser:
+            # Set the external_id in the clerk
+            settings = Settings()
+            async with Clerk(bearer_auth=settings.CLERK_SECRET_KEY) as clerk:
+                await clerk.users.update_async(
+                    user_id=clerk_user_id, external_id=str(user.id)
+                )
+        return user
 
     @strawberry.mutation
     async def create_dataset(

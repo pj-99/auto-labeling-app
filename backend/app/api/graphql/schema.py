@@ -7,6 +7,7 @@ from models.image import Image as ImageModel
 from models.label_detection import LabelDetection as LabelDetectionModel
 from models.label_segmentation import LabelSegmentation as LabelSegmentationModel
 from models.object_class import Class as ClassModel
+from models.user import User as UserModel
 
 
 @strawberry.experimental.pydantic.type(model=ImageModel, all_fields=True)
@@ -31,4 +32,9 @@ class LabelDetection:
 
 @strawberry.experimental.pydantic.type(model=LabelSegmentationModel, all_fields=True)
 class LabelSegmentation:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=UserModel, all_fields=True)
+class User:
     pass

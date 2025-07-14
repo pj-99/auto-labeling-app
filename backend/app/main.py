@@ -1,6 +1,7 @@
 import os
 
 import strawberry
+from api.graphql.context import get_context
 from api.graphql.mutation import Mutation
 from api.graphql.queries import Query
 from api.image_upload.image_upload import GenerateSignedUrlRequest, generate_signed_url
@@ -10,7 +11,7 @@ from strawberry.fastapi import GraphQLRouter
 
 schema = strawberry.Schema(query=Query, mutation=Mutation)
 
-graphql_app = GraphQLRouter(schema)
+graphql_app = GraphQLRouter(schema, context_getter=get_context)
 
 app = FastAPI()
 
