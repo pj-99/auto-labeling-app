@@ -39,6 +39,10 @@ export function useUser() {
         } catch {
           console.log('Error getting token')
         }
+      } else {
+        userStore.setToken('')
+        userStore.setUserId('')
+        userStore.setUser(null)
       }
     },
     { immediate: true },

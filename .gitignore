@@ -3,6 +3,7 @@ data/images/
 data/datasets/*
 
 *.pem
+*.key
 
 *.pt
 
