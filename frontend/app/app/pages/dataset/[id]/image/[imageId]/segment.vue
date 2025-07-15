@@ -362,7 +362,7 @@ watch(segmentations, (newLabels) => {
     <div class="mx-auto flex gap-8">
       <!-- Left Sidebar -->
       <div
-        class="w-48 shrink-0 flex flex-col gap-6 rounded-lg shadow-lg border p-4 h-fit"
+        class="w-48 shrink-0 flex flex-col gap-6 rounded-lg shadow-md border border-accented p-4 h-fit"
       >
         <AutoLabeling 
           v-model="selectedModel" 
@@ -428,10 +428,10 @@ watch(segmentations, (newLabels) => {
       </div>
 
       <!-- Right Content Area -->
-      <div class="flex-1 min-h-[calc(100vh-8rem)] flex flex-col">
+      <div class="flex-1 h-[calc(100vh-12rem)] flex flex-col">
         <!-- Image Container -->
         <div
-          class="relative flex-1 border-2 rounded-lg flex items-center justify-center overflow-hidden"
+          class="relative flex-1 border border-accented rounded-lg flex items-center justify-center overflow-hidden"
           @mousedown="handleMouseDown"
           @mousemove="handleMouseMove"
         >
