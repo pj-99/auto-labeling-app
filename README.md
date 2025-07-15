@@ -17,6 +17,14 @@
 
 https://github.com/user-attachments/assets/66f44b49-31a8-4f47-8d95-6082dc17a400
 
+> [!TIP]
+> Future Work: To reduce auto-labeling latency, consider implementing model warm-up or a caching strategy.
+
+## Future Work
+- Integrate YOLOWorld with SAM to support segmentation masks  
+- Performance optimizations
+  - Model warm-up to reduce inference latency
+
 ---
 
 #### 🎥 Label bounding boxes with SAM2 model assitance
@@ -103,6 +111,6 @@ npm run dev
 ## Future Work
 - Integrate YOLOWorld with SAM to support segmentation masks  
 - Performance optimizations
-  - Model warm-up to reduce inference latency
+  - Model warm-up or caching strategy to reduce inference latency
   - Pagination (since dataset might have a lot of images)
 - Feature to export labeled datasets
