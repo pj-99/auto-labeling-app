@@ -1,6 +1,29 @@
 # Auto labeling app
 
+- An exploratory project that supports labeling for object detection and segmentation datasets
+- Leverages [SAM2](https://docs.ultralytics.com/models/sam-2/) and [YOLO-World](https://docs.ultralytics.com/models/yolo-world/) models to automatically generate bounding boxes and segmentation masks
 
+## System Architecture
+
+![image](docs/images/architecture.png)
+
+
+
+## CD Pipeline
+> Build image and deploy services to GCP
+
+1. Build images and upload to registry 
+    - Use [GitHub actions](.github/workflows) to build new images when corresponding changes are made
+    - Upload image to GCP artifcat registry
+
+2. Deploy
+    - Backend app -> Serverless (Cloud Run)
+    - Inference gateway -> Serverless (Cloud Run)
+    - Inference services -> VM (Compute Engine)
+        - Utilze [WatchTower](https://github.com/containrrr/watchtower/) for updating to the latest images.
+
+
+---
 
 
 ## Getting Started (Local Development)
@@ -17,6 +40,7 @@ cp backend/app/.env.example backend/app/dev.env
 **2. Set up credentials**
 
 - Place the GCP service account JSON at `backend/app/gcp_service_account.json`
+- Place the Clerk JWT Signed key at `backend/app/jwt_public.pem`
 
 **3. Start Docker containers for backends**
 ```sh

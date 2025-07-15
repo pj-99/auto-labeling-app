@@ -1,2 +1,0 @@
-- https://github.com/fastapi/full-stack-fastapi-template/
-- https://systemdesignschool.io/problems/google-doc/solution#2-multi-user-collaborative-editing

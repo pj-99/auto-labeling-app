@@ -14,7 +14,6 @@ Topic: predict.${type}.${method}
     - Topic: `predict.dataset.image`
 
 
-
 ----
 
 ## Auto label per dataset
