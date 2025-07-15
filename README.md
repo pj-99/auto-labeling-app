@@ -4,6 +4,30 @@
 - Leverages [SAM2](https://docs.ultralytics.com/models/sam-2/) and [YOLO-World](https://docs.ultralytics.com/models/yolo-world/) models to automatically generate bounding boxes and segmentation masks
 
 
+## Features Demo
+
+
+
+#### 🎥 Label bounding boxes with YOLO-world model assitance
+
+https://github.com/user-attachments/assets/66f44b49-31a8-4f47-8d95-6082dc17a400
+
+---
+
+#### 🎥 Label bounding boxes with SAM2 model assitance
+
+https://github.com/user-attachments/assets/dfbd2ff0-1757-432b-93ba-f565a8521869
+
+---
+
+#### 📸 Generate segmentation masks with SAM2
+<img width="1409" height="920" alt="sam-screenshot" src="https://github.com/user-attachments/assets/3378877c-8388-4f93-9da8-5fb9a214ea54" />
+
+
+---
+
+
+
 ## System Architecture
 
 ![image](docs/images/architecture.png)
@@ -17,6 +41,8 @@
 - **Ultralytics**: Support computer vision models
 - **Google Cloud Platform** - Cloud infrastructure and services
 - **GitHub Actions** - CD pipeline automation
+
+
 
 
 
