@@ -100,10 +100,9 @@ npm run dev
 
 
 
-## Future works
-- Export labeled datasets
+## Future Work
 - Integrate YOLOWorld with SAM to support segmentation masks  
 - Performance optimizations
-  - model warm up to reduce inference latency
-
-
+  - Model warm-up to reduce inference latency
+  - Pagination (since dataset might have a lot of images)
+- Feature to export labeled datasets
