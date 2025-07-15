@@ -116,7 +116,7 @@ const {
 const { isGDINOLoading: isYoloLoading, runGDINO } = useGDINO()
 
 const handleRunAutoLabeling = async () => {
-  if (selectedModel.value !== 'YOLO(coco)') return
+  if (selectedModel.value !== 'YOLO-World') return
   
   await runGDINO({
     imageId,

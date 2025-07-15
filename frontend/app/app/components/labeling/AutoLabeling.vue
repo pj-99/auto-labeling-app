@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
-export type ModelType = 'SAM' | 'YOLO(coco)'
+export type ModelType = 'SAM' | 'YOLO-World'
 export type SAMMode = 'add' | 'remove'
 
 const props = defineProps<{
@@ -28,10 +28,10 @@ const samModeValue = computed({
 
 const enabled = ref(false)
 
-const items = ref<ModelType[]>(['SAM', 'YOLO(coco)'])
+const items = ref<ModelType[]>(['SAM', 'YOLO-World'])
 const descriptions = ref<Record<ModelType, string>>({
   SAM: 'Click to add points, Shift+Click to remove',
-  'YOLO(coco)': 'Automatically label the image by YOLO(coco)',
+  'YOLO-World': 'Automatically label the image by YOLO-World, using current classes to detect',
 })
 
 const samModeOptions: Array<{
@@ -126,7 +126,7 @@ const handleToggle = (val: boolean) => {
       </div>
 
       <UButton
-        v-if="value === 'YOLO(coco)'"
+        v-if="value === 'YOLO-World'"
         class="w-full"
         variant="solid"
         icon="i-heroicons-play"
