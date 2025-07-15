@@ -136,7 +136,7 @@ const toggleCollapsible = () => {
 </script>
 
 <template>
-  <div class="max-w-[90%] mx-auto sm:px-6 lg:px-8">
+  <div class="mx-auto sm:px-6 lg:px-8">
     <!-- Header Section -->
     <div class="mb-8">
     <UCard class="mb-4">
@@ -162,17 +162,20 @@ const toggleCollapsible = () => {
       <!-- Image Searching Button -->
       <div class="mt-2 flex gap-4">
         <UButton
-          label="Image Searching"
+          label="Image Searching (WIP)"
           icon="i-heroicons-magnifying-glass"
           color="secondary"
           variant="outline"
           class="flex-1"
+          disabled
+          size="lg"
           @click="openSearchModal"
         />
 
         <UButton
           label="Upload Images"
           color="primary"
+          variant="subtle"
           class="flex-1"
           icon="i-heroicons-arrow-up-on-square"
           trailing-icon="i-lucide-chevron-down"

@@ -21,6 +21,11 @@ import LabelList from '~/components/labeling/LabelList.vue'
 import { useUserStore } from '~/store/user'
 
 
+definePageMeta({
+  layout: 'fullscreen'
+})
+
+
 const route = useRoute()
 
 const imageIdBase64 = route.params.imageId

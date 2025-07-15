@@ -139,7 +139,7 @@ const handleToggle = (val: boolean) => {
 
       <p
         v-if="value && descriptions[value]"
-        class="text-sm text-muted-foreground"
+        class="text-sm text-muted"
       >
         {{ descriptions[value] }}
       </p>
