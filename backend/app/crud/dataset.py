@@ -1,5 +1,5 @@
-import os
 from datetime import datetime
+from typing import List, Union
 from uuid import UUID, uuid4
 
 import bson
@@ -8,12 +8,6 @@ from models.dataset import Dataset, TrainingType
 from models.image import Image
 from models.object_class import Class
 from motor.motor_asyncio import AsyncIOMotorDatabase
-
-
-def validate_user(user_id: UUID) -> bool:
-    # TODO: validate user exist
-    # TODO: maybe use middleware to validate user JWT
-    return True
 
 
 async def check_dataset_exists(db: AsyncIOMotorDatabase, dataset_id: UUID) -> bool:
@@ -33,16 +27,11 @@ async def insert_image_to_dataset(
     if not await check_dataset_exists(db, dataset_id):
         raise ValueError("Dataset not found")
 
-    if not validate_user(user_id):
-        raise ValueError("User not found")
-
-    if image_type not in ["image/jpeg", "image/png", "image/jpg"]:
-        raise ValueError("Invalid image type")
-
     try:
         image_url = f"https://storage.googleapis.com/{settings.GCP_STORAGE_BUCKET}/{gcs_file_name}"
         # Insert to images collection
         image_id = uuid4()
+
         image = Image(
             id=image_id,
             image_name=image_name,
@@ -52,8 +41,7 @@ async def insert_image_to_dataset(
             image_url=image_url,
             created_by=user_id,
         )
-        image_dict = image.model_dump(mode="json")
-        image_dict["id"] = bson.Binary.from_uuid(image_id)
+        image_dict = image.model_dump(mode="python")
         await db["images"].insert_one(image_dict)
 
         # Update the dataset collection
@@ -69,8 +57,6 @@ async def insert_image_to_dataset(
 async def create_dataset(
     db: AsyncIOMotorDatabase, user_id: UUID, name: str, training_type: TrainingType
 ) -> Dataset:
-    if not validate_user(user_id):
-        raise ValueError("User not found")
 
     collection = db["datasets"]
     new_dataset_id = uuid4()
@@ -100,12 +86,57 @@ async def create_dataset(
     )
 
 
+async def _get_dataset_with_images(
+    db: AsyncIOMotorDatabase, dataset_id: UUID
+) -> Union[Dataset, None]:
+    """Get the image info of a dataset"""
+    # TODO: this function and its caller can be replaced with a single query
+
+    # 1. match datasets by id
+    # 2. lookup join by images
+    # 3. sort by created_at
+    collection = db["datasets"]
+    pipeline = [
+        {"$match": {"id": dataset_id}},
+        {
+            "$lookup": {
+                "from": "images",
+                "foreignField": "id",
+                "localField": "images",
+                "as": "images",
+            }
+        },
+        {"$sort": {"created_at": -1}},
+    ]
+
+    result = await collection.aggregate(pipeline).to_list(length=1)
+
+    if not result or len(result) == 0:
+        print(f"Dataset {dataset_id} not found")
+        return None
+
+    doc = result[0]
+    images = doc.get("images", [])
+
+    # Transform the result
+    return Dataset(
+        id=doc["id"],
+        name=doc["name"],
+        created_by=doc["user_id"],
+        created_at=doc["created_at"],
+        updated_at=doc["updated_at"],
+        images=images,
+        training_type=(
+            TrainingType(doc["training_type"])
+            if "training_type" in doc
+            else TrainingType.DETECT
+        ),
+    )
+
+
 async def get_datasets_by_user_id(
     db: AsyncIOMotorDatabase, user_id: UUID
 ) -> list[Dataset]:
-    if not validate_user(user_id):
-        raise ValueError("User not found")
-
     collection = db["datasets"]
     user_id_binary = bson.Binary.from_uuid(user_id)
     result = (
@@ -182,11 +213,27 @@ async def delete_class(
 
 async def get_classes_by_dataset_id(
     db: AsyncIOMotorDatabase, dataset_id: UUID
-) -> list[Class]:
+) -> Union[List[Class], None]:
     if not await check_dataset_exists(db, dataset_id):
-        raise ValueError("Dataset not found")
+        return None
 
     result = await db["datasets"].find_one({"id": dataset_id})
+    if not result:
+        return None
+
     classes = result.get("classes", [])
-    print(classes)
     return [Class(**cls) for cls in classes]
+
+
+async def get_dataset(
+    db: AsyncIOMotorDatabase, dataset_id: UUID, user_id: UUID
+) -> Union[Dataset, None]:
+    result = await _get_dataset_with_images(db, dataset_id)
+    if not result:
+        return None
+
+    if result.created_by != user_id:
+        print(f"User {user_id} does not have access to this dataset: {dataset_id}")
+        return None
+
+    return result

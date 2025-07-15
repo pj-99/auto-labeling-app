@@ -18,12 +18,17 @@ import {
   SAM_MUTATION,
 } from '~/composables/useAutoLabelingQuery'
 import LabelList from '~/components/labeling/LabelList.vue'
+import { useUserStore } from '~/store/user'
+
 
 const route = useRoute()
 
 const imageIdBase64 = route.params.imageId
 const imageId = decodeBase64ToUuid(imageIdBase64 as string)
 const datasetId = decodeBase64ToUuid(route.params.id as string)
+
+const userStore = useUserStore()
+const userId = computed(() => userStore.userId)
 
 const selectedModel = ref<ModelType | null>(null)
 const canvasEl = ref<HTMLCanvasElement | null>(null)
@@ -35,8 +40,12 @@ const selectedClass = ref<number | undefined>(undefined)
 const { mutate: predictSam } = useAutoLabelingMutation(SAM_MUTATION)
 const toast = useToast()
 
-// TODO: Replace with actual user ID from auth system
-const userId = '123e4567-e89b-12d3-a456-426614174000'
+const queryArgs = computed(() => ({
+  userId: userId.value,
+  imageId,
+  datasetId,
+}))
+
 
 const {
   image,
@@ -45,7 +54,7 @@ const {
   refetchClasses,
   refetchDetections: refetchLabels,
   insertClass,
-} = useLabelQueries({ userId, imageId, datasetId })
+} = useLabelQueries(queryArgs)
 
 const imageWidth = computed(() => image.value?.width)
 
@@ -107,7 +116,7 @@ const handleRunAutoLabeling = async () => {
   await runGDINO({
     imageId,
     datasetId,
-    userId,
+    userId: userId.value,
     onComplete: async () => {
       await refetchLabels();
       refreshCanvasLabels();
@@ -319,6 +328,38 @@ const deleteSelectedLabel = async (label: { id?: string | number }) => {
   await wrappedRefetchLabels()
 }
 
+// Handle label hover
+const handleLabelHover = (label: { id?: string | number } | null) => {
+  if (!fabricCanvas.value || !label?.id) return
+
+  const objects = fabricCanvas.value.getObjects('rect')
+  const rect = objects.find((obj) => {
+    const customRect = obj as CustomRect
+    return customRect.data?.labelId === label.id
+  }) as CustomRect | undefined
+
+  if (rect) {
+    fabricCanvas.value.setActiveObject(rect)
+    fabricCanvas.value.renderAll()
+  }
+}
+
+// Handle label select
+const handleLabelSelect = (label: { id?: string | number } | null) => {
+  if (!fabricCanvas.value || !label?.id) return
+
+  const objects = fabricCanvas.value.getObjects('rect')
+  const rect = objects.find((obj) => {
+    const customRect = obj as CustomRect
+    return customRect.data?.labelId === label.id
+  }) as CustomRect | undefined
+
+  if (rect) {
+    fabricCanvas.value.setActiveObject(rect)
+    fabricCanvas.value.renderAll()
+  }
+}
+
 // Save modifications
 const saveCurrentModifications = async () => {
   if (!fabricCanvas.value) return
@@ -341,9 +382,9 @@ const saveCurrentModifications = async () => {
 // Lifecycle hooks
 onMounted(async () => {
   await nextTick()
+  window.addEventListener('keydown', handleKeyDown)
   if (image.value) {
     initCanvas()
-    window.addEventListener('keydown', handleKeyDown)
   }
 })
 

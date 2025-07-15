@@ -5,8 +5,8 @@ import type { Dataset } from '~/types/dataset'
 
 // GraphQL Queries
 const DATASET_QUERY = gql`
-  query GetDatasets($userId: UUID!) {
-    datasets(userId: $userId) {
+  query GetDataset($datasetId: UUID!) {
+    dataset(datasetId: $datasetId) {
       id
       name
       createdAt
@@ -26,20 +26,23 @@ const DATASET_QUERY = gql`
   }
 `
 
-// Main composable
-export const useDataset = (userId: Ref<string | undefined>) => {
+// Main composable  
+export const useSingleDataset = (datasetId?: string, userId?: Ref<string>) => {
+
+
   const { result, loading, error, refetch } = useQuery(
     DATASET_QUERY,
-    { userId },
+    { datasetId },
     {
-      enabled: computed(() => !!userId.value),
+      enabled: computed(() => !!userId?.value),
     }
   )
 
-  const datasets = computed(() => result.value?.datasets || [])
+  const dataset = computed(() => result.value?.dataset || [])
+
 
   return {
-    datasets,
+    dataset,
     loading,
     error,
     refetch,

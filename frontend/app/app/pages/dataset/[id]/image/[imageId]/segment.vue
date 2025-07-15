@@ -18,6 +18,7 @@ import {
   SAM_MUTATION
 } from '~/composables/useAutoLabelingQuery'
 import LabelList from '~/components/labeling/LabelList.vue'
+import { useUserStore } from '~/store/user'
 
 const route = useRoute()
 
@@ -35,8 +36,14 @@ const selectedClass = ref<number | undefined>(undefined)
 const { mutate: predictSam } = useAutoLabelingMutation(SAM_MUTATION)
 const toast = useToast()
 
-// TODO: Replace with actual user ID from auth system
-const userId = '123e4567-e89b-12d3-a456-426614174000'
+const userStore = useUserStore()
+const userId = computed(() => userStore.userId)
+
+const queryArgs = computed(() => ({
+  userId: userId.value,
+  imageId,
+  datasetId,
+}))
 
 const { 
   image, 
@@ -45,7 +52,7 @@ const {
   refetchClasses,
   refetchSegmentations,
   insertClass 
-} = useLabelQueries({ userId, imageId, datasetId })
+} = useLabelQueries(queryArgs)
 
 // Computed properties
 const imageWidth = computed(() => image.value?.width)
@@ -285,9 +292,9 @@ const {
 // Lifecycle hooks
 onMounted(async () => {
   await nextTick()
+  window.addEventListener('keydown', handleKeyDown)
   if (image.value) {
     initCanvas()
-    window.addEventListener('keydown', handleKeyDown)
   }
 })
 

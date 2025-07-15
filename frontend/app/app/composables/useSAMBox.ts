@@ -51,7 +51,7 @@ export const useSAMBbox = (
   // State
   const samMode = ref<SAMMode>('add')
   const isAutoLabelLoading = ref(false)
-  
+
   const activeSAMSession = ref<SAMBboxSession>({
     rect: null,
     points: [],
@@ -59,25 +59,25 @@ export const useSAMBbox = (
   })
 
   // Computed
-  const isInSAMEditing = computed(() => 
+  const isInSAMEditing = computed(() =>
     selectedModel.value === 'SAM' && activeSAMSession.value.rect !== null
   )
 
   // SAM Points Rendering for Bbox
   const renderSAMPoints = () => {
     if (!fabricCanvas.value || !imageWidth.value) return
-    
+
     // Remove existing points
     const existingPoints = fabricCanvas.value.getObjects().filter(
       obj => 'data' in obj && obj.data && typeof obj.data === 'object' && 'type' in obj.data && obj.data.type === 'sam-point'
     )
     existingPoints.forEach(point => fabricCanvas.value!.remove(point))
-    
+
     // Render new points
     activeSAMSession.value.points.forEach((point, index) => {
       const isPositive = activeSAMSession.value.labels[index] === 1
       const scaleFactor = fabricCanvas.value!.width! / imageWidth.value!
-      
+
       const outerCircle = new Circle({
         radius: 8,
         fill: 'white',
@@ -91,7 +91,7 @@ export const useSAMBbox = (
         evented: false,
         data: { type: 'sam-point', index }
       })
-      
+
       const innerCircle = new Circle({
         radius: 5,
         fill: isPositive ? '#10b981' : '#ef4444',
@@ -105,16 +105,16 @@ export const useSAMBbox = (
         evented: false,
         data: { type: 'sam-point', index }
       })
-      
+
       fabricCanvas.value!.add(outerCircle, innerCircle)
     })
-    
+
     fabricCanvas.value!.renderAll()
   }
 
   const clearSAMPoints = () => {
     if (!fabricCanvas.value) return
-    
+
     const points = fabricCanvas.value.getObjects().filter(
       obj => 'data' in obj && obj.data && typeof obj.data === 'object' && 'type' in obj.data && obj.data.type === 'sam-point'
     )
@@ -124,8 +124,8 @@ export const useSAMBbox = (
 
   // SAM Bbox Prediction
   const pointToBoxBySAM = async (
-    pointX: number, 
-    pointY: number, 
+    pointX: number,
+    pointY: number,
     imageUrl: string,
     imageWidth: number,
     imageHeight: number,
@@ -185,14 +185,14 @@ export const useSAMBbox = (
       width,
       height,
     })
-    
+
     if (rect) {
       rect.set({
         strokeDashArray: [5, 5],
         selectable: false,
         evented: false
       })
-      
+
       activeSAMSession.value.rect = rect
     }
 
@@ -203,38 +203,38 @@ export const useSAMBbox = (
   // SAM Session Management
   const confirmSAMBbox = async () => {
     if (!activeSAMSession.value.rect) return
-    
+
     const rect = activeSAMSession.value.rect
-    
+
     // Clear points first
     clearSAMPoints()
-    
+
     // Update rect state
     rect.set({
       strokeDashArray: [],
       selectable: true,
       evented: true
     })
-    
+
     // Save modification
     const newLabelId = await handleBoxModification(rect as CustomRect)
-    
+
     if (newLabelId && !rect.data?.labelId) {
       rect.data!.labelId = newLabelId
     }
-    
+
     // Clean up
     fabricCanvas.value!.discardActiveObject()
     updateBoxesSelectability()
     fabricCanvas.value!.renderAll()
-    
+
     // Reset session
     activeSAMSession.value = {
       rect: null,
       points: [],
       labels: []
     }
-    
+
     await wrappedRefetchLabels()
   }
 
@@ -242,15 +242,15 @@ export const useSAMBbox = (
     if (activeSAMSession.value.rect) {
       fabricCanvas.value!.remove(activeSAMSession.value.rect as CustomRect)
     }
-    
+
     clearSAMPoints()
-    
+
     activeSAMSession.value = {
       rect: null,
       points: [],
       labels: []
     }
-    
+
     fabricCanvas.value!.renderAll()
   }
 
@@ -263,7 +263,7 @@ export const useSAMBbox = (
     getMousePoint: (e: MouseEvent, canvas: FabricCanvas, imageWidth: number) => { x: number; y: number }
   ) => {
     if (selectedModel.value !== 'SAM' || !imageWidth) return
-    
+
     try {
       isAutoLabelLoading.value = true
       const { x, y } = getMousePoint(e, fabricCanvas.value!, imageWidth)
@@ -310,7 +310,7 @@ export const useSAMBbox = (
     isAutoLabelLoading,
     activeSAMSession,
     isInSAMEditing,
-    
+
     // Methods
     renderSAMPoints,
     clearSAMPoints,
