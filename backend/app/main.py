@@ -27,7 +27,11 @@ app.add_middleware(
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "frontend_url": os.getenv("FRONTEND_URL"),
+        "cors_origins": ["http://localhost:3000", os.getenv("FRONTEND_URL")],
+    }
 
 
 @app.post("/generate-signed-url")
