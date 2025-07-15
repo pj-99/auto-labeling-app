@@ -44,10 +44,10 @@ https://github.com/user-attachments/assets/dfbd2ff0-1757-432b-93ba-f565a8521869
 - **Python** & **FastAPI**: Backend code and API
 - **MongoDB**: NoSQL database for flexible data schema
 - **GraphQL**: Flexible API query language
-- **Docker** - Containerization for development and deployment
+- **Docker**: Containerization for development and deployment
 - **Ultralytics**: Support computer vision models
-- **Google Cloud Platform** - Cloud infrastructure and services
-- **GitHub Actions** - CD pipeline automation
+- **Google Cloud Platform**: Cloud infrastructure and services
+- **GitHub Actions**: CD pipeline automation
 
 
 
