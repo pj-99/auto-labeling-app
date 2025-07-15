@@ -1,11 +1,16 @@
 # Auto labeling app
 
+
+
 - An exploratory project that supports labeling for object detection and segmentation datasets
 - Leverages [SAM2](https://docs.ultralytics.com/models/sam-2/) and [YOLO-World](https://docs.ultralytics.com/models/yolo-world/) models to automatically generate bounding boxes and segmentation masks
 
+> [!NOTE]
+> This is an experimental project for learning purpose
+
+
 
 ## Features Demo
-
 
 
 #### 🎥 Label bounding boxes with YOLO-world model assitance
@@ -22,6 +27,8 @@ https://github.com/user-attachments/assets/dfbd2ff0-1757-432b-93ba-f565a8521869
 
 #### 📸 Generate segmentation masks with SAM2
 <img width="1409" height="920" alt="sam-screenshot" src="https://github.com/user-attachments/assets/3378877c-8388-4f93-9da8-5fb9a214ea54" />
+
+
 
 
 ---
@@ -90,4 +97,13 @@ cd frontend/app
 npm i
 npm run dev
 ```
+
+
+
+## Future works
+- Export labeled datasets
+- Integrate YOLOWorld with SAM to support segmentation masks  
+- Performance optimizations
+  - model warm up to reduce inference latency
+
 
