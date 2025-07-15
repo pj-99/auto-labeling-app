@@ -101,7 +101,7 @@ const handleDrop = (e: DragEvent) => {
     class="border-2 border-dashed rounded-lg p-8 transition-all duration-200"
     :class="{
       'border-primary-500 bg-primary-50 dark:bg-primary-950': isDragging && !disabled,
-      'border-gray-300 dark:border-gray-700': !isDragging || disabled,
+      'border-default': !isDragging || disabled,
       'opacity-50 cursor-not-allowed': disabled
     }"
     @dragover="handleDragOver"
@@ -114,17 +114,17 @@ const handleDrop = (e: DragEvent) => {
         class="mx-auto h-12 w-12 transition-colors duration-200"
         :class="{
           'text-primary-500': isDragging && !disabled,
-          'text-gray-400': !isDragging || disabled
+          'text-muted': !isDragging || disabled
         }"
       />
       <div class="mt-4">
-        <h3 class="text-lg font-semibold">
+        <h3 class="text-lg font-semibold text-default">
           {{ isDragging ? dragTitle : title }}
         </h3>
-        <p class="mt-1 text-sm">
+        <p class="mt-1 text-sm text-muted">
           {{ description }}
         </p>
-        <p v-if="acceptDescription" class="mt-2 text-xs text-gray-500">
+        <p v-if="acceptDescription" class="mt-2 text-xs text-muted">
           {{ acceptDescription }}
         </p>
       </div>

@@ -104,7 +104,7 @@ async function onSubmit(event: FormSubmitEvent<CreateDatasetSchema>) {
 
 <template>
   <UModal v-model:open="openModal">
-    <UButton label="Create Dataset" color="secondary" variant="subtle" />
+    <UButton label="Create Dataset" color="primary" variant="subtle" />
     <template #content>
       <UCard>
         <template #header>

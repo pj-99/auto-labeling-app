@@ -55,11 +55,11 @@ const datasetActions = (datasetId: string) => [
 
 
 <template>
-  <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
+  <div class="mx-auto sm:px-6 lg:px-8">
     <!-- Header Section -->
     <div class="mb-8">
-      <h1 class="text-2xl font-semibold text-gray-900 mb-2">Datasets</h1>
-      <p class="text-gray-600">Manage your datasets for image labeling</p>
+      <h1 class="text-2xl font-semibold text-default mb-2">Datasets</h1>
+      <p class="text-muted">Manage your datasets for image labeling</p>
     </div>
 
     <!-- Create Dataset Section -->
@@ -73,7 +73,7 @@ const datasetActions = (datasetId: string) => [
 
       <!-- Loading State -->
       <div v-if="datasetsLoading" class="text-center py-4">
-        <p class="text-gray-600">Loading datasets...</p>
+        <p class="text-muted-foreground">Loading datasets...</p>
       </div>
 
       <!-- Datasets Grid -->
@@ -91,7 +91,7 @@ const datasetActions = (datasetId: string) => [
                   <DatasetBadge :training-type="dataset.trainingType" />
                 </div>
 
-                <p class="text-sm text-gray-500 mt-1">
+                <p class="text-sm text-muted-foreground mt-1">
                   Updated {{ formatDate(dataset.createdAt) }}
                 </p>
               </div>
@@ -104,7 +104,7 @@ const datasetActions = (datasetId: string) => [
               </UDropdownMenu>
             </div>
             <div class="mt-4">
-              <p class="text-sm text-gray-600">
+              <p class="text-sm text-muted-foreground">
                 {{ dataset.images?.length || 0 }} images
               </p>
             </div>
@@ -116,7 +116,7 @@ const datasetActions = (datasetId: string) => [
           v-if="!datasetsLoading && datasets.length === 0"
           class="text-center py-4"
         >
-          <p class="text-gray-600">
+          <p class="text-muted-foreground">
             No datasets found. Create one above to get started.
           </p>
         </div>
