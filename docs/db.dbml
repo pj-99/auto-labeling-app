@@ -53,9 +53,5 @@ Table Class {
 
 Table Users as U {
   id uuid [primary key]
-  name varchar [not null]
-  email varchar [not null]
-  password varchar
-  created_at timestamp
-  updated_at timestamp
+  clerk_user_id varchar [not null]
 }
