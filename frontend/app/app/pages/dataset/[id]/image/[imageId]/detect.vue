@@ -466,7 +466,7 @@ const refreshCanvasLabels = () => {
     <div class="mx-auto flex gap-8">
       <!-- Left Sidebar -->
       <div
-        class="w-48 shrink-0 flex flex-col gap-6 rounded-lg shadow-lg border p-4 h-screen"
+        class="w-48 shrink-0 flex flex-col gap-6 rounded-lg shadow-lg border p-4 h-fit"
       >
         <AutoLabeling 
           v-model="selectedModel" 
