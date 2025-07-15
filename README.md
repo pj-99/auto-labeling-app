@@ -3,9 +3,20 @@
 - An exploratory project that supports labeling for object detection and segmentation datasets
 - Leverages [SAM2](https://docs.ultralytics.com/models/sam-2/) and [YOLO-World](https://docs.ultralytics.com/models/yolo-world/) models to automatically generate bounding boxes and segmentation masks
 
+
 ## System Architecture
 
 ![image](docs/images/architecture.png)
+
+
+**Tech stack**
+- **Python** & **FastAPI**: Backend code and API
+- **MongoDB**: NoSQL database for flexible data schema
+- **GraphQL**: Flexible API query language
+- **Docker** - Containerization for development and deployment
+- **Ultralytics**: Support computer vision models
+- **Google Cloud Platform** - Cloud infrastructure and services
+- **GitHub Actions** - CD pipeline automation
 
 
 
